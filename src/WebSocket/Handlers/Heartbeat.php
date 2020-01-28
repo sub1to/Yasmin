@@ -9,19 +9,23 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Handlers;
 
+use CharlotteDunois\Yasmin\Interfaces\WSHandlerInterface;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSHandler;
+
 /**
  * WS Event handler
  * @internal
  */
-class Heartbeat implements \CharlotteDunois\Yasmin\Interfaces\WSHandlerInterface {
+class Heartbeat implements WSHandlerInterface {
     public $heartbeat;
     protected $wshandler;
     
-    function __construct(\CharlotteDunois\Yasmin\WebSocket\WSHandler $wshandler) {
+    function __construct(WSHandler $wshandler) {
         $this->wshandler = $wshandler;
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $packet): void {
+    function handle(WSConnection $ws, $packet): void {
         $ws->heartbeat();
     }
 }

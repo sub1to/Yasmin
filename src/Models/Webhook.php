@@ -9,6 +9,25 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use BadMethodCallException;
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\TextChannelInterface;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\FileHelpers;
+use CharlotteDunois\Yasmin\Utils\MessageHelpers;
+use InvalidArgumentException;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use React\Promise\PromiseInterface;
+use RuntimeException;
+use function array_merge;
+use function count;
+use function is_array;
+use function property_exists;
+use function React\Promise\resolve;
+use function str_replace;
+
 /**
  * Represents a webhook.
  *
@@ -17,7 +36,7 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property string|null                               $avatar     The webhook default avatar, or null.
  * @property string|null                               $channelID  The channel ID the webhook belongs to.
  * @property string|null                               $guildID    The guild ID the webhook belongs to, or null.
- * @property \CharlotteDunois\Yasmin\Models\User|null  $owner      The owner of the webhook, or null.
+ * @property User|null  $owner      The owner of the webhook, or null.
  * @property string|null                               $token      The webhook token, or null.
  */
 class Webhook extends ClientBase {
@@ -53,7 +72,7 @@ class Webhook extends ClientBase {
     
     /**
      * The owner of the webhook, or null.
-     * @var \CharlotteDunois\Yasmin\Models\User|null
+     * @var User|null
      */
     protected $owner;
     
@@ -62,11 +81,13 @@ class Webhook extends ClientBase {
      * @var string|null
      */
     protected $token;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $webhook) {
+
+	/**
+	 * @param Client $client
+	 * @param array $webhook
+	 * @internal
+	 */
+    function __construct(Client $client, array $webhook) {
         parent::__construct($client);
         
         $this->id = (string) $webhook['id'];
@@ -76,11 +97,11 @@ class Webhook extends ClientBase {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -102,8 +123,8 @@ class Webhook extends ClientBase {
      *
      * @param array   $options
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function edit(array $options, string $reason = '') {
         $data = array();
@@ -116,10 +137,10 @@ class Webhook extends ClientBase {
             $data['channel'] = $this->client->channels->resolve($options['channel'])->getId();
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($data, $options, $reason) {
-            \CharlotteDunois\Yasmin\Utils\FileHelpers::resolveFileResolvable(($options['avatar'] ?? ''))->done(function ($avatar = null) use ($data, $reason, $resolve, $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($data, $options, $reason) {
+            FileHelpers::resolveFileResolvable(($options['avatar'] ?? ''))->done(function ($avatar = null) use ($data, $reason, $resolve, $reject) {
                 if(!empty($avatar)) {
-                    $data['avatar'] = \CharlotteDunois\Yasmin\Utils\DataHelpers::makeBase64URI($avatar);
+                    $data['avatar'] = DataHelpers::makeBase64URI($avatar);
                 }
                 
                 $method = 'modifyWebhook';
@@ -141,10 +162,10 @@ class Webhook extends ClientBase {
     /**
      * Deletes the webhook.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function delete(string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($reason) {
             $method = 'deleteWebhook';
             $args = array($this->id, $reason);
             
@@ -186,18 +207,18 @@ class Webhook extends ClientBase {
      *
      * @param string  $content  The webhook message content.
      * @param array   $options  Any webhook message options.
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \BadMethodCallException
+     * @return ExtendedPromiseInterface
+     * @throws BadMethodCallException
      * @see \CharlotteDunois\Yasmin\Models\Message
      * @see https://discordapp.com/developers/docs/resources/channel#message-object
      */
     function send(string $content, array $options = array()) {
         if(empty($this->token)) {
-            throw new \BadMethodCallException('Can not use webhook without token to send message');
+            throw new BadMethodCallException('Can not use webhook without token to send message');
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($content, $options) {
-            \CharlotteDunois\Yasmin\Utils\MessageHelpers::resolveMessageOptionsFiles($options)->done(function ($files) use ($content, $options, $resolve, $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($content, $options) {
+            MessageHelpers::resolveMessageOptionsFiles($options)->done(function ($files) use ($content, $options, $resolve, $reject) {
                 $msg = array(
                     'content' => $content
                 );
@@ -212,7 +233,7 @@ class Webhook extends ClientBase {
                 
                 $disableEveryone = (isset($options['disableEveryone']) ? ((bool) $options['disableEveryone']) : $this->client->getOption('disableEveryone', false));
                 if($disableEveryone) {
-                    $msg['content'] = \str_replace(array('@everyone', '@here'), array("@\u{200b}everyone", "@\u{200b}here"), $msg['content']);
+                    $msg['content'] = str_replace(array('@everyone', '@here'), array("@\u{200b}everyone", "@\u{200b}here"), $msg['content']);
                 }
                 
                 if(!empty($options['tts'])) {
@@ -220,11 +241,11 @@ class Webhook extends ClientBase {
                 }
                 
                 if(!empty($options['split'])) {
-                    $options['split'] = $split = \array_merge(\CharlotteDunois\Yasmin\Models\Message::DEFAULT_SPLIT_OPTIONS, (\is_array($options['split']) ? $options['split'] : array()));
-                    $messages = \CharlotteDunois\Yasmin\Utils\MessageHelpers::splitMessage($msg['content'], $options['split']);
+                    $options['split'] = $split = array_merge(Message::DEFAULT_SPLIT_OPTIONS, (is_array($options['split']) ? $options['split'] : array()));
+                    $messages = MessageHelpers::splitMessage($msg['content'], $options['split']);
                     
-                    if(\count($messages) > 0) {
-                        $collection = new \CharlotteDunois\Collect\Collection();
+                    if(count($messages) > 0) {
+                        $collection = new Collection();
                         
                         $chunkedSend = function ($msg, $files = null) use ($collection, $reject) {
                             return $this->executeWebhook($msg, ($files ?? array()))->then(function ($message) use ($collection) {
@@ -234,7 +255,7 @@ class Webhook extends ClientBase {
                         
                         $i = 0;
                         
-                        $promise = \React\Promise\resolve();
+                        $promise = resolve();
                         foreach($messages as $key => $message) {
                             $promise = $promise->then(function () use ($chunkedSend, &$files, $key, $i, $message, &$msg, $split) {
                                 $fs = null;
@@ -281,29 +302,30 @@ class Webhook extends ClientBase {
      * Executes the webhook effectively. Resolves with an instance of Message.
      * @param array  $opts
      * @param array  $files
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface|PromiseInterface
      * @internal
      */
     protected function executeWebhook(array $opts, array $files) {
         return $this->client->apimanager()->endpoints->webhook->executeWebhook($this->id, $this->token, $opts, $files, array('wait' => true))->then(function ($data) {
             $channel = $this->client->channels->get($this->channelID);
-            if($channel instanceof \CharlotteDunois\Yasmin\Interfaces\TextChannelInterface) {
+            if($channel instanceof TextChannelInterface) {
                 return $channel->_createMessage($data);
             }
             
             return $data;
         });
     }
-    
-    /**
-     * @return void
-     * @internal
-     */
-    function _patch(array $webhook) {
+
+	/**
+	 * @param array $webhook
+	 * @return void
+	 * @internal
+	 */
+	function _patch(array $webhook) {
         $this->name = $webhook['name'] ?? null;
         $this->avatar = $webhook['avatar'] ?? null;
-        $this->channelID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($webhook['channel_id'] ?? null), 'string');
-        $this->guildID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($webhook['guild_id'] ?? null), 'string');
+        $this->channelID = DataHelpers::typecastVariable(($webhook['channel_id'] ?? null), 'string');
+        $this->guildID = DataHelpers::typecastVariable(($webhook['guild_id'] ?? null), 'string');
         $this->owner = (!empty($webhook['user']) ? $this->client->users->patch($webhook['user']) : null);
         $this->token = $webhook['token'] ?? null;
     }

@@ -9,6 +9,23 @@
 
 namespace CharlotteDunois\Yasmin\Utils;
 
+use DateTime;
+use Exception;
+use InvalidArgumentException;
+use function base_convert;
+use function bcmod;
+use function bindec;
+use function count;
+use function decbin;
+use function explode;
+use function get_class;
+use function microtime;
+use function str_pad;
+use function substr;
+use function usleep;
+use const PHP_INT_SIZE;
+use const STR_PAD_LEFT;
+
 /**
  * Represents a Snowflake.
  * @property float       $timestamp  The timestamp of when this snowflake got generated. In seconds with microseconds.
@@ -17,7 +34,7 @@ namespace CharlotteDunois\Yasmin\Utils;
  * @property int         $increment  The increment index of the snowflake.
  * @property string      $binary     The binary representation of this snowflake.
  * @property string|int  $value      The snowflake value.
- * @property \DateTime   $date       A DateTime instance of the timestamp.
+ * @property DateTime   $date       A DateTime instance of the timestamp.
  */
 class Snowflake {
     /**
@@ -39,43 +56,44 @@ class Snowflake {
     /**
      * Constructor.
      * @param string|int  $snowflake
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function __construct($snowflake) {
-        if(\PHP_INT_SIZE === 4) {
+        if(PHP_INT_SIZE === 4) {
             $this->value = $snowflake;
-            $this->binary = \str_pad(\base_convert($snowflake, 10, 2), 64, 0, \STR_PAD_LEFT);
+            $this->binary = str_pad(base_convert($snowflake, 10, 2), 64, 0, STR_PAD_LEFT);
             
-            $time = \base_convert(\substr($this->binary, 0, 42), 2, 10);
+            $time = base_convert(substr($this->binary, 0, 42), 2, 10);
             
-            $this->timestamp = (float) ((((int) \substr($time, 0, -3)) + static::EPOCH).'.'.\substr($time, -3));
-            $this->workerID = (int) \base_convert(\substr($this->binary, 42, 5), 2, 10);
-            $this->processID = (int) \base_convert(\substr($this->binary, 47, 5), 2, 10);
-            $this->increment = (int) \base_convert(\substr($this->binary, 52, 12), 2, 10);
+            $this->timestamp = (float) ((((int) substr($time, 0, -3)) + static::EPOCH).'.'. substr($time, -3));
+            $this->workerID = (int) base_convert(substr($this->binary, 42, 5), 2, 10);
+            $this->processID = (int) base_convert(substr($this->binary, 47, 5), 2, 10);
+            $this->increment = (int) base_convert(substr($this->binary, 52, 12), 2, 10);
         } else {
             $snowflake = (int) $snowflake;
             $this->value = $snowflake;
             
-            $this->binary = \str_pad(\decbin($snowflake), 64, 0, \STR_PAD_LEFT);
+            $this->binary = str_pad(decbin($snowflake), 64, 0, STR_PAD_LEFT);
             
             $time = (string) ($snowflake >> 22);
             
-            $this->timestamp = (float) ((((int) \substr($time, 0, -3)) + static::EPOCH).'.'.\substr($time, -3));
+            $this->timestamp = (float) ((((int) substr($time, 0, -3)) + static::EPOCH).'.'. substr($time, -3));
             $this->workerID = ($snowflake & 0x3E0000) >> 17;
             $this->processID = ($snowflake & 0x1F000) >> 12;
             $this->increment = ($snowflake & 0xFFF);
         }
         
         if($this->timestamp < static::EPOCH || $this->workerID < 0 || $this->workerID >= 32 || $this->processID < 0 || $this->processID >= 32 || $this->increment < 0 || $this->increment >= 4096) {
-            throw new \InvalidArgumentException('Invalid snow in snowflake');
+            throw new InvalidArgumentException('Invalid snow in snowflake');
         }
     }
-    
-    /**
-     * @return mixed
-     * @throws \Exception
-     * @internal
-     */
+
+	/**
+	 * @param $name
+	 * @return mixed
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
         switch($name) {
             case 'timestamp':
@@ -86,11 +104,11 @@ class Snowflake {
                 return $this->$name;
             break;
             case 'date':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime(((int) $this->timestamp));
+                return DataHelpers::makeDateTime(((int) $this->timestamp));
             break;
         }
         
-        throw new \Exception('Undefined property: '.\get_class($this).'::$'.$name);
+        throw new Exception('Undefined property: '. get_class($this).'::$'.$name);
     }
     
     /**
@@ -110,22 +128,22 @@ class Snowflake {
      */
     static function generate(int $workerID = 1, int $processID = 0) {
         if($workerID > 31 || $workerID < 0) {
-            throw new \InvalidArgumentException('Worker ID is out of range');
+            throw new InvalidArgumentException('Worker ID is out of range');
         }
         
         if($processID > 31 || $processID < 0) {
-            throw new \InvalidArgumentException('Process ID is out of range');
+            throw new InvalidArgumentException('Process ID is out of range');
         }
         
-        $time = \microtime(true);
+        $time = microtime(true);
         
         if($time === static::$incrementTime) {
             static::$incrementIndex++;
             
             if(static::$incrementIndex >= 4095) {
-                \usleep(1000);
+                usleep(1000);
                 
-                $time = \microtime(true);
+                $time = microtime(true);
                 static::$incrementIndex = 0;
             }
         } else {
@@ -133,22 +151,22 @@ class Snowflake {
             static::$incrementTime = $time;
         }
         
-        $workerID = \str_pad(\decbin($workerID), 5, 0, \STR_PAD_LEFT);
-        $processID = \str_pad(\decbin($processID), 5, 0, \STR_PAD_LEFT);
+        $workerID = str_pad(decbin($workerID), 5, 0, STR_PAD_LEFT);
+        $processID = str_pad(decbin($processID), 5, 0, STR_PAD_LEFT);
         
-        $mtime = \explode('.', ((string) $time));
-        if(\count($mtime) < 2) {
+        $mtime = explode('.', ((string) $time));
+        if(count($mtime) < 2) {
             $mtime[1] = '000';
         }
         
-        $time = ((string) (((int) $mtime[0]) - static::EPOCH)).\substr($mtime[1], 0, 3);
+        $time = ((string) (((int) $mtime[0]) - static::EPOCH)). substr($mtime[1], 0, 3);
         
-        if(\PHP_INT_SIZE === 4) {
-            $binary = \str_pad(\base_convert($time, 10, 2), 42, 0, \STR_PAD_LEFT).$workerID.$processID.\str_pad(\decbin(static::$incrementIndex), 12, 0, \STR_PAD_LEFT);
-            return \base_convert($binary, 2, 10);
+        if(PHP_INT_SIZE === 4) {
+            $binary = str_pad(base_convert($time, 10, 2), 42, 0, STR_PAD_LEFT).$workerID.$processID. str_pad(decbin(static::$incrementIndex), 12, 0, STR_PAD_LEFT);
+            return base_convert($binary, 2, 10);
         } else {
-            $binary = \str_pad(\decbin(((int) $time)), 42, 0, \STR_PAD_LEFT).$workerID.$processID.\str_pad(\decbin(static::$incrementIndex), 12, 0, \STR_PAD_LEFT);
-            return ((string) \bindec($binary));
+            $binary = str_pad(decbin(((int) $time)), 42, 0, STR_PAD_LEFT).$workerID.$processID. str_pad(decbin(static::$incrementIndex), 12, 0, STR_PAD_LEFT);
+            return ((string) bindec($binary));
         }
     }
     
@@ -158,11 +176,9 @@ class Snowflake {
      * @return int
      */
     function getShardID(int $shardCount) {
-        if(\PHP_INT_SIZE === 4) {
-            $time = \base_convert(\substr($this->binary, 0, 42), 2, 10);
-            $shard = (int) \bcmod($time, ((string) $shardCount));
-            
-            return $shard;
+        if(PHP_INT_SIZE === 4) {
+            $time = base_convert(substr($this->binary, 0, 42), 2, 10);
+            return (int) bcmod($time, ((string) $shardCount));
         } else {
             $time = $this->value >> 22;
             return ($time % $shardCount);

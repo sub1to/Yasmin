@@ -32,8 +32,8 @@ This is a fairly trivial example of using Yasmin. You should put all your listen
 ```php
 // Include composer autoloader
 
-$loop = \React\EventLoop\Factory::create();
-$client = new \CharlotteDunois\Yasmin\Client(array(), $loop);
+use CharlotteDunois\Yasmin\Client;use CharlotteDunois\Yasmin\Interfaces\DMChannelInterface;use React\EventLoop\Factory;$loop = Factory::create();
+$client = new Client(array(), $loop);
 
 $client->on('error', function ($error) {
     echo $error.PHP_EOL;
@@ -44,7 +44,7 @@ $client->on('ready', function () use ($client) {
 });
 
 $client->on('message', function ($message) {
-    echo 'Received Message from '.$message->author->tag.' in '.($message->channel instanceof \CharlotteDunois\Yasmin\Interfaces\DMChannelInterface ? 'DM' : 'channel #'.$message->channel->name ).' with '.$message->attachments->count().' attachment(s) and '.\count($message->embeds).' embed(s)'.PHP_EOL;
+    echo 'Received Message from '.$message->author->tag.' in '.($message->channel instanceof DMChannelInterface ? 'DM' : 'channel #'.$message->channel->name ).' with '.$message->attachments->count().' attachment(s) and '.count($message->embeds).' embed(s)'.PHP_EOL;
 });
 
 $client->login('YOUR_TOKEN')->done();

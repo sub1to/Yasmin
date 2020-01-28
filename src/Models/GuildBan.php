@@ -9,23 +9,28 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use React\Promise\ExtendedPromiseInterface;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents a guild ban.
  *
- * @property \CharlotteDunois\Yasmin\Models\Guild  $guild   The guild this ban is from.
- * @property \CharlotteDunois\Yasmin\Models\User   $user    The banned user.
+ * @property Guild $guild   The guild this ban is from.
+ * @property User $user    The banned user.
  * @property string|null                           $reason  The ban reason, or null.
  */
 class GuildBan extends ClientBase {
     /**
      * The guild this ban is from.
-     * @var \CharlotteDunois\Yasmin\Models\Guild
+     * @var Guild
      */
     protected $guild;
     
     /**
      * The banned user.
-     * @var \CharlotteDunois\Yasmin\Models\User
+     * @var User
      */
     protected $user;
     
@@ -34,11 +39,15 @@ class GuildBan extends ClientBase {
      * @var string|null
      */
     protected $reason;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Guild $guild, \CharlotteDunois\Yasmin\Models\User $user, ?string $reason) {
+
+	/**
+	 * @param Client $client
+	 * @param Guild $guild
+	 * @param User $user
+	 * @param string|null $reason
+	 * @internal
+	 */
+    function __construct(Client $client, Guild $guild, User $user, ?string $reason) {
         parent::__construct($client);
         
         $this->guild = $guild;
@@ -49,11 +58,11 @@ class GuildBan extends ClientBase {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -63,7 +72,7 @@ class GuildBan extends ClientBase {
     /**
      * Unbans the user.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function unban(string $reason = '') {
         return $this->guild->unban($this->user, $reason);

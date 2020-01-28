@@ -9,6 +9,25 @@
 
 namespace CharlotteDunois\Yasmin\Utils;
 
+use Clue\React\Buzz\Browser;
+use LogicException;
+use Psr\Http\Message\RequestInterface;
+use React\EventLoop\LoopInterface;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\PromiseInterface;
+use RingCentral\Psr7\MultipartStream;
+use RingCentral\Psr7\Request;
+use RingCentral\Psr7\Stream;
+use RuntimeException;
+use function fopen;
+use function fseek;
+use function fwrite;
+use function json_encode;
+use function json_last_error_msg;
+use function React\Promise\reject;
+use function strlen;
+use function ucwords;
+
 /**
  * URL Helper methods.
  */
@@ -21,43 +40,43 @@ class URLHelpers {
     const DEFAULT_USER_AGENT = 'Yasmin (https://github.com/CharlotteDunois/Yasmin)';
     
     /**
-     * @var \React\EventLoop\LoopInterface
+     * @var LoopInterface
      */
     protected static $loop;
     
     /**
-     * @var \Clue\React\Buzz\Browser
+     * @var Browser
      */
     protected static $http;
     
     /**
      * Sets the Event Loop.
-     * @param \React\EventLoop\LoopInterface  $loop
+     * @param LoopInterface  $loop
      * @return void
      * @internal
      */
-    static function setLoop(\React\EventLoop\LoopInterface $loop) {
+    static function setLoop(LoopInterface $loop) {
         static::$loop = $loop;
         
         if(static::$http === null) {
             static::internalSetClient();
         }
     }
-    
-    /**
-     * Set the HTTP client used in Yasmin (and in this utility).
-     * Be aware that this method can be changed at any time.
-     *
-     * If you want to set the HTTP client, then you need to set it
-     * before the utilities get initialized by the Client!
-     *
-     * The HTTP client is after setting **immutable**.
-     * @return void
-     * @throws \LogicException
-     */
-    static function setHTTPClient(\Clue\React\Buzz\Browser $client) {
+
+	/**
+	 * Set the HTTP client used in Yasmin (and in this utility).
+	 * Be aware that this method can be changed at any time.
+	 *
+	 * If you want to set the HTTP client, then you need to set it
+	 * before the utilities get initialized by the Client!
+	 *
+	 * The HTTP client is after setting **immutable**.
+	 * @param Browser $client
+	 * @return void
+	 */
+    static function setHTTPClient(Browser $client) {
         if(static::$http !== null) {
-            throw new \LogicException('Client has already been set');
+            throw new LogicException('Client has already been set');
         }
         
         static::$http = $client;
@@ -68,12 +87,12 @@ class URLHelpers {
      * @return void
      */
     protected static function internalSetClient() {
-        static::$http = new \Clue\React\Buzz\Browser(static::$loop);
+        static::$http = new Browser(static::$loop);
     }
     
     /**
      * Returns the client. This method may be changed at any time.
-     * @return \Clue\React\Buzz\Browser
+     * @return Browser
      */
     static function getHTTPClient() {
         if(!static::$http) {
@@ -98,12 +117,12 @@ class URLHelpers {
      * )
      * ```
      *
-     * @param \Psr\Http\Message\RequestInterface  $request
+     * @param RequestInterface  $request
      * @param array|null                          $requestOptions
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface|PromiseInterface
      * @see \Psr\Http\Message\ResponseInterface
      */
-    static function makeRequest(\Psr\Http\Message\RequestInterface $request, ?array $requestOptions = null) {
+    static function makeRequest(RequestInterface $request, ?array $requestOptions = null) {
         $client = static::getHTTPClient();
         
         if(!empty($requestOptions)) {
@@ -121,8 +140,8 @@ class URLHelpers {
             
             try {
                 $request = static::applyRequestOptions($request, $requestOptions);
-            } catch (\RuntimeException $e) {
-                return \React\Promise\reject($e);
+            } catch (RuntimeException $e) {
+                return reject($e);
             }
         }
         
@@ -133,7 +152,7 @@ class URLHelpers {
      * Asynchronously resolves a given URL to the response body. Resolves with a string.
      * @param string      $url
      * @param array|null  $requestHeaders
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface|PromiseInterface
      */
     static function resolveURLToData(string $url, ?array $requestHeaders = null) {
         if($requestHeaders === null) {
@@ -142,7 +161,7 @@ class URLHelpers {
         
         foreach($requestHeaders as $key => $val) {
             unset($requestHeaders[$key]);
-            $nkey = \ucwords($key, '-');
+            $nkey = ucwords($key, '-');
             $requestHeaders[$nkey] = $val;
         }
         
@@ -150,11 +169,10 @@ class URLHelpers {
             $requestHeaders['User-Agent'] = static::DEFAULT_USER_AGENT;
         }
         
-        $request = new \RingCentral\Psr7\Request('GET', $url, $requestHeaders);
+        $request = new Request('GET', $url, $requestHeaders);
         
         return static::makeRequest($request)->then(function ($response) {
-            $body = (string) $response->getBody();
-            return $body;
+            return (string) $response->getBody();
         });
     }
     
@@ -171,38 +189,38 @@ class URLHelpers {
      * )
      * ```
      *
-     * @param \Psr\Http\Message\RequestInterface  $request
+     * @param RequestInterface  $request
      * @param array                               $requestOptions
-     * @return \Psr\Http\Message\RequestInterface
-     * @throws \RuntimeException
+     * @return RequestInterface
+     * @throws RuntimeException
      */
-    static function applyRequestOptions(\Psr\Http\Message\RequestInterface $request, array $requestOptions) {
+    static function applyRequestOptions(RequestInterface $request, array $requestOptions) {
         if(isset($requestOptions['multipart'])) {
-            $multipart = new \RingCentral\Psr7\MultipartStream($requestOptions['multipart']);
+            $multipart = new MultipartStream($requestOptions['multipart']);
             
             $request = $request->withBody($multipart)
                             ->withHeader('Content-Type', 'multipart/form-data; boundary="'.$multipart->getBoundary().'"');
         }
         
         if(isset($requestOptions['json'])) {
-            $resource = \fopen('php://temp', 'r+');
+            $resource = fopen('php://temp', 'r+');
             if($resource === false) {
-                throw new \RuntimeException('Unable to create stream for JSON data');
+                throw new RuntimeException('Unable to create stream for JSON data');
             }
             
-            $json = \json_encode($requestOptions['json']);
+            $json = json_encode($requestOptions['json']);
             if($json === false) {
-                throw new \RuntimeException('Unable to encode json. Error: '.\json_last_error_msg());
+                throw new RuntimeException('Unable to encode json. Error: '. json_last_error_msg());
             }
             
-            \fwrite($resource, $json);
-            \fseek($resource, 0);
+            fwrite($resource, $json);
+            fseek($resource, 0);
             
-            $stream = new \RingCentral\Psr7\Stream($resource, array('size' => \strlen($json)));
+            $stream = new Stream($resource, array('size' => strlen($json)));
             $request = $request->withBody($stream);
             
             $request = $request->withHeader('Content-Type', 'application/json')
-                            ->withHeader('Content-Length', \strlen($json));
+                            ->withHeader('Content-Length', strlen($json));
         }
         
         if(isset($requestOptions['query'])) {

@@ -9,31 +9,40 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Events;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\TextChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\WSEventInterface;
+use CharlotteDunois\Yasmin\Models\Message;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use function count;
+
 /**
  * WS Event
  * @see https://discordapp.com/developers/docs/topics/gateway#message-delete-bulk
  * @internal
  */
-class MessageDeleteBulk implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
+class MessageDeleteBulk implements WSEventInterface {
     /**
      * The client.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager) {
+    function __construct(Client $client, WSManager $wsmanager) {
         $this->client = $client;
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void {
+    function handle(WSConnection $ws, $data): void {
         $channel = $this->client->channels->get($data['channel_id']);
-        if($channel instanceof \CharlotteDunois\Yasmin\Interfaces\TextChannelInterface) {
-            $messages = new \CharlotteDunois\Collect\Collection();
+        if($channel instanceof TextChannelInterface) {
+            $messages = new Collection();
             $messagesRaw = array();
             
             foreach($data['ids'] as $id) {
                 $message = $channel->getMessages()->get($id);
-                if($message instanceof \CharlotteDunois\Yasmin\Models\Message) {
+                if($message instanceof Message) {
                     $channel->getMessages()->delete($message->id);
                     $messages->set($message->id, $message);
                 } else {
@@ -45,7 +54,7 @@ class MessageDeleteBulk implements \CharlotteDunois\Yasmin\Interfaces\WSEventInt
                 $this->client->queuedEmit('messageDeleteBulk', $messages);
             }
             
-            if(\count($messagesRaw) > 0) {
+            if(count($messagesRaw) > 0) {
                 $this->client->queuedEmit('messageDeleteBulkRaw', $channel, $messagesRaw);
             }
         }

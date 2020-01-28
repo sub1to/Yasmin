@@ -9,6 +9,28 @@
 
 namespace CharlotteDunois\Yasmin\Traits;
 
+use BadMethodCallException;
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Interfaces\VoiceChannelInterface;
+use CharlotteDunois\Yasmin\Models\CategoryChannel;
+use CharlotteDunois\Yasmin\Models\ChannelStorage;
+use CharlotteDunois\Yasmin\Models\GuildMember;
+use CharlotteDunois\Yasmin\Models\Invite;
+use CharlotteDunois\Yasmin\Models\PermissionOverwrite;
+use CharlotteDunois\Yasmin\Models\Permissions;
+use CharlotteDunois\Yasmin\Models\Role;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use InvalidArgumentException;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use function array_column;
+use function array_values;
+use function in_array;
+use function is_int;
+use function json_encode;
+use function React\Promise\all;
+use function React\Promise\resolve;
+
 /**
  * The trait all guild channels use.
  */
@@ -28,7 +50,7 @@ trait GuildChannelTrait {
      * ```
      *
      * @param array $options
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Invite
      */
     function createInvite(array $options = array()) {
@@ -42,9 +64,9 @@ trait GuildChannelTrait {
             $data['max_age'] = $options['maxAge'];
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($data) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($data) {
             $this->client->apimanager()->endpoints->channel->createChannelInvite($this->id, $data)->done(function ($data) use ($resolve) {
-                $invite = new \CharlotteDunois\Yasmin\Models\Invite($this->client, $data);
+                $invite = new Invite($this->client, $data);
                 $resolve($invite);
             }, $reject);
         }));
@@ -56,17 +78,17 @@ trait GuildChannelTrait {
      * @param bool    $withPermissions  Whether to clone the channel with this channel's permission overwrites
      * @param bool    $withTopic        Whether to clone the channel with this channel's topic.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface
      */
     function clone(string $name = null, bool $withPermissions = true, bool $withTopic = true, string $reason = '') {
         $data = array(
             'name' => (!empty($name) ? ((string) $name) : $this->name),
-            'type' => \CharlotteDunois\Yasmin\Models\ChannelStorage::getTypeForChannel($this)
+            'type' => ChannelStorage::getTypeForChannel($this)
         );
         
         if($withPermissions) {
-            $data['permission_overwrites'] = \array_values($this->permissionOverwrites->all());
+            $data['permission_overwrites'] = array_values($this->permissionOverwrites->all());
         }
         
         if($withTopic) {
@@ -77,14 +99,14 @@ trait GuildChannelTrait {
             $data['parent_id'] = $this->parentID;
         }
         
-        if($this instanceof \CharlotteDunois\Yasmin\Interfaces\VoiceChannelInterface) {
+        if($this instanceof VoiceChannelInterface) {
             $data['bitrate'] = $this->bitrate;
             $data['user_limit'] = $this->userLimit;
         } else {
             $data['nsfw'] = $this->nsfw;
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($data, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($data, $reason) {
             $this->client->apimanager()->endpoints->guild->createGuildChannel($this->guild->id, $data, $reason)->done(function ($data) use ($resolve) {
                 $channel = $this->guild->channels->factory($data, $this->guild);
                 $resolve($channel);
@@ -113,15 +135,15 @@ trait GuildChannelTrait {
      *
      * @param array   $options
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function edit(array $options, string $reason = '') {
         if(empty($options)) {
-            throw new \InvalidArgumentException('Unable to edit channel with zero information');
+            throw new InvalidArgumentException('Unable to edit channel with zero information');
         }
         
-        $data = \CharlotteDunois\Yasmin\Utils\DataHelpers::applyOptions($options, array(
+        $data = DataHelpers::applyOptions($options, array(
             'name' => array('type' => 'string'),
             'position' => array('type' => 'int'),
             'topic' => array('type' => 'string'),
@@ -130,18 +152,18 @@ trait GuildChannelTrait {
             'userLimit' => array('key' => 'user_limit', 'type' => 'int'),
             'slowmode' => array('key' => 'rate_limit_per_user', 'type' => 'int'),
             'parent' => array('key' => 'parent_id', 'parse' => function ($val) {
-                return ($val instanceof \CharlotteDunois\Yasmin\Models\CategoryChannel ? $val->id : $val);
+                return ($val instanceof CategoryChannel ? $val->id : $val);
             }),
             'permissionOverwrites' => array('key' => 'permission_overwrites', 'parse' => function ($val) {
-                if($val instanceof \CharlotteDunois\Collect\Collection) {
+                if($val instanceof Collection) {
                     $val = $val->all();
                 }
                 
-                return \array_values($val);
+                return array_values($val);
             })
         ));
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($data, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($data, $reason) {
             $this->client->apimanager()->endpoints->channel->modifyChannel($this->id, $data, $reason)->done(function () use ($resolve) {
                 $resolve($this);
             }, $reject);
@@ -151,10 +173,10 @@ trait GuildChannelTrait {
     /**
      * Deletes the channel.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function delete(string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($reason) {
             $this->client->apimanager()->endpoints->channel->deleteChannel($this->id, $reason)->done(function () use ($resolve) {
                 $resolve();
             }, $reject);
@@ -163,16 +185,16 @@ trait GuildChannelTrait {
     
     /**
      * Fetches all invites of this channel. Resolves with a Collection of Invite instances, mapped by their code.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Invite
      */
     function fetchInvites() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->channel->getChannelInvites($this->id)->done(function ($data) use ($resolve) {
-                $collection = new \CharlotteDunois\Collect\Collection();
+                $collection = new Collection();
                 
                 foreach($data as $invite) {
-                    $inv = new \CharlotteDunois\Yasmin\Models\Invite($this->client, $invite);
+                    $inv = new Invite($this->client, $invite);
                     $collection->set($inv->code, $inv);
                 }
                 
@@ -184,11 +206,11 @@ trait GuildChannelTrait {
     /**
      * Whether the permission overwrites match the parent channel (permissions synced).
      * @return bool
-     * @throws \BadMethodCallException
+     * @throws BadMethodCallException
      */
     function isPermissionsLocked() {
         if($this->parentID === null) {
-            throw new \BadMethodCallException('This channel does not have a parent');
+            throw new BadMethodCallException('This channel does not have a parent');
         }
         
         $parent = $this->parent;
@@ -205,39 +227,39 @@ trait GuildChannelTrait {
     
     /**
      * Returns the permissions for the given member.
-     * @param \CharlotteDunois\Yasmin\Models\GuildMember|string  $member
-     * @return \CharlotteDunois\Yasmin\Models\Permissions
-     * @throws \InvalidArgumentException
+     * @param GuildMember|string  $member
+     * @return Permissions
+     * @throws InvalidArgumentException
      * @see https://discordapp.com/developers/docs/topics/permissions#permission-overwrites
      */
     function permissionsFor($member) {
         $member = $this->guild->members->resolve($member);
         
         if($member->id === $this->guild->ownerID) {
-            return (new \CharlotteDunois\Yasmin\Models\Permissions(\CharlotteDunois\Yasmin\Models\Permissions::ALL));
+            return (new Permissions(Permissions::ALL));
         }
         
         $permissions = $member->permissions;
         
         if($permissions->has('ADMINISTRATOR')) {
-            return (new \CharlotteDunois\Yasmin\Models\Permissions(\CharlotteDunois\Yasmin\Models\Permissions::ALL));
+            return (new Permissions(Permissions::ALL));
         }
         
         $overwrites = $this->overwritesFor($member);
         
         if($overwrites['everyone']) {
-            $permissions->remove(($overwrites['everyone']->deny->bitfield & ~\CharlotteDunois\Yasmin\Models\Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
-            $permissions->add(($overwrites['everyone']->allow->bitfield & ~\CharlotteDunois\Yasmin\Models\Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
+            $permissions->remove(($overwrites['everyone']->deny->bitfield & ~Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
+            $permissions->add(($overwrites['everyone']->allow->bitfield & ~Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
         }
         
         foreach($overwrites['roles'] as $role) {
-            $permissions->remove(($role->deny->bitfield & ~\CharlotteDunois\Yasmin\Models\Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
-            $permissions->add(($role->allow->bitfield & ~\CharlotteDunois\Yasmin\Models\Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
+            $permissions->remove(($role->deny->bitfield & ~Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
+            $permissions->add(($role->allow->bitfield & ~Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
         }
         
         if($overwrites['member']) {
-            $permissions->remove(($overwrites['member']->deny->bitfield & ~\CharlotteDunois\Yasmin\Models\Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
-            $permissions->add(($overwrites['member']->allow->bitfield & ~\CharlotteDunois\Yasmin\Models\Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
+            $permissions->remove(($overwrites['member']->deny->bitfield & ~Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
+            $permissions->add(($overwrites['member']->allow->bitfield & ~Permissions::CHANNEL_UNACCESSIBLE_PERMISSIONS));
         }
         
         return $permissions;
@@ -254,9 +276,9 @@ trait GuildChannelTrait {
      * )
      * ```
      *
-     * @param \CharlotteDunois\Yasmin\Models\GuildMember|string  $member
+     * @param GuildMember|string  $member
      * @return array
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function overwritesFor($member) {
         $member = $this->guild->members->resolve($member);
@@ -284,37 +306,37 @@ trait GuildChannelTrait {
     
     /**
      * Overwrites the permissions for a member or role in this channel. Resolves with an instance of PermissionOverwrite.
-     * @param \CharlotteDunois\Yasmin\Models\GuildMember|\CharlotteDunois\Yasmin\Models\Role|string  $memberOrRole  The member or role.
-     * @param \CharlotteDunois\Yasmin\Models\Permissions|int                                         $allow         Which permissions should be allowed?
-     * @param \CharlotteDunois\Yasmin\Models\Permissions|int                                         $deny          Which permissions should be denied?
+     * @param GuildMember|Role|string  $memberOrRole  The member or role.
+     * @param Permissions|int                                         $allow         Which permissions should be allowed?
+     * @param Permissions|int                                         $deny          Which permissions should be denied?
      * @param string                                                                                 $reason        The reason for this.
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      * @see \CharlotteDunois\Yasmin\Models\PermissionOverwrite
      */
     function overwritePermissions($memberOrRole, $allow, $deny = 0, string $reason = '') {
         [ $memberOrRole, $options ] = $this->validateOverwritePermissions($memberOrRole, $allow, $deny);
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($memberOrRole, $options, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($memberOrRole, $options, $reason) {
             $this->client->apimanager()->endpoints->channel->editChannelPermissions($this->id, $memberOrRole, $options, $reason)->done(function () use ($memberOrRole, $options, $resolve, $reject) {
                 $options['id'] = $memberOrRole;
                 
                 if($options['type'] === 'member') {
                     $fetch = $this->guild->fetchMember($options['id']);
                 } else {
-                    $fetch = \React\Promise\resolve();
+                    $fetch = resolve();
                 }
                 
                 $fetch->done(function () use ($options, $resolve) {
-                    if($options['allow'] instanceof \CharlotteDunois\Yasmin\Models\Permissions) {
+                    if($options['allow'] instanceof Permissions) {
                         $options['allow'] = $options['allow']->bitfield;
                     }
                     
-                    if($options['deny'] instanceof \CharlotteDunois\Yasmin\Models\Permissions) {
+                    if($options['deny'] instanceof Permissions) {
                         $options['deny'] = $options['deny']->bitfield;
                     }
                     
-                    $overwrite = new \CharlotteDunois\Yasmin\Models\PermissionOverwrite($this->client, $this, $options);
+                    $overwrite = new PermissionOverwrite($this->client, $this, $options);
                     $this->permissionOverwrites->set($overwrite->id, $overwrite);
                     
                     $resolve($overwrite);
@@ -326,15 +348,15 @@ trait GuildChannelTrait {
     /**
      * Locks in the permission overwrites from the parent channel. Resolves with $this.
      * @param string  $reason  The reason for this.
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \BadMethodCallException
+     * @return ExtendedPromiseInterface
+     * @throws BadMethodCallException
      */
     function lockPermissions(string $reason = '') {
         if(!$this->parent) {
-            throw new \BadMethodCallException('This channel does not have a parent');
+            throw new BadMethodCallException('This channel does not have a parent');
         }
         
-        $overwrites = \array_values($this->parent->permissionOverwrites->map(function ($overwrite) {
+        $overwrites = array_values($this->parent->permissionOverwrites->map(function ($overwrite) {
             return array(
                 'id' => $overwrite->id,
                 'type' => $overwrite->type,
@@ -343,12 +365,12 @@ trait GuildChannelTrait {
             );
         })->all());
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($overwrites, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($overwrites, $reason) {
             $promises = array();
             
-            $overwritesID = \array_column($overwrites, 'id');
+            $overwritesID = array_column($overwrites, 'id');
             foreach($this->permissionOverwrites as $perm) {
-                if(!\in_array($perm->id, $overwritesID)) {
+                if(!in_array($perm->id, $overwritesID)) {
                     $promises[] = $perm->delete($reason);
                 }
             }
@@ -357,7 +379,7 @@ trait GuildChannelTrait {
                 $promises[] = $this->client->apimanager()->endpoints->channel->editChannelPermissions($this->id, $overwrite['id'], $overwrite, $reason);
             }
             
-            \React\Promise\all($promises)->done(function () use ($resolve) {
+            all($promises)->done(function () use ($resolve) {
                 $resolve($this);
             }, $reject);
         }));
@@ -367,8 +389,8 @@ trait GuildChannelTrait {
      * Sets the name of the channel. Resolves with $this.
      * @param string  $name
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function setName(string $name, string $reason = '') {
         return $this->edit(array('name' => $name), $reason);
@@ -378,8 +400,8 @@ trait GuildChannelTrait {
      * Sets the nsfw flag of the channel. Resolves with $this.
      * @param bool    $nsfw
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function setNSFW(bool $nsfw, string $reason = '') {
         return $this->edit(array('nsfw' => $nsfw), $reason);
@@ -387,10 +409,10 @@ trait GuildChannelTrait {
     
     /**
      * Sets the parent of the channel. Resolves with $this.
-     * @param \CharlotteDunois\Yasmin\Models\CategoryChannel|string  $parent  An instance of CategoryChannel or the channel ID.
+     * @param CategoryChannel|string  $parent  An instance of CategoryChannel or the channel ID.
      * @param string                                                 $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function setParent($parent, string $reason = '') {
         return $this->edit(array('parent' => $parent), $reason);
@@ -398,10 +420,10 @@ trait GuildChannelTrait {
     
     /**
      * Sets the permission overwrites of the channel. Resolves with $this.
-     * @param \CharlotteDunois\Collect\Collection|array  $permissionOverwrites  An array or Collection of PermissionOverwrite instances or permission overwrite arrays.
+     * @param Collection|array  $permissionOverwrites  An array or Collection of PermissionOverwrite instances or permission overwrite arrays.
      * @param string                                     $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function setPermissionOverwrites($permissionOverwrites, string $reason = '') {
         return $this->edit(array('permissionOverwrites' => $permissionOverwrites), $reason);
@@ -411,12 +433,12 @@ trait GuildChannelTrait {
      * Sets the position of the channel. Resolves with $this.
      * @param int     $position
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function setPosition(int $position, string $reason = '') {
         if($position < 0) {
-            throw new \InvalidArgumentException('Position can not be below 0');
+            throw new InvalidArgumentException('Position can not be below 0');
         }
         
         $newPositions = array();
@@ -447,7 +469,7 @@ trait GuildChannelTrait {
             $pos++;
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($newPositions, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($newPositions, $reason) {
             $this->client->apimanager()->endpoints->guild->modifyGuildChannelPositions($this->guild->id, $newPositions, $reason)->done(function () use ($resolve) {
                 $resolve($this);
             }, $reject);
@@ -458,8 +480,8 @@ trait GuildChannelTrait {
      * Sets the topic of the channel. Resolves with $this.
      * @param string  $topic
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function setTopic(string $topic, string $reason = '') {
         return $this->edit(array('topic' => $topic), $reason);
@@ -467,40 +489,40 @@ trait GuildChannelTrait {
     
     /**
      * Validates the given overwritePermissions arguments.
-     * @param \CharlotteDunois\Yasmin\Models\GuildMember|\CharlotteDunois\Yasmin\Models\Role|string  $memberOrRole  The member or role.
-     * @param \CharlotteDunois\Yasmin\Models\Permissions|int                                         $allow         Which permissions should be allowed?
-     * @param \CharlotteDunois\Yasmin\Models\Permissions|int                                         $deny          Which permissions should be denied?
+     * @param GuildMember|Role|string  $memberOrRole  The member or role.
+     * @param Permissions|int                                         $allow         Which permissions should be allowed?
+     * @param Permissions|int                                         $deny          Which permissions should be denied?
      * @return array
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     protected function validateOverwritePermissions($memberOrRole, $allow, $deny = 0) {
         $options = array();
         
-        if($memberOrRole instanceof \CharlotteDunois\Yasmin\Models\GuildMember) {
+        if($memberOrRole instanceof GuildMember) {
             $memberOrRole = $memberOrRole->id;
             $options['type'] = 'member';
-        } elseif($memberOrRole instanceof \CharlotteDunois\Yasmin\Models\Role) {
+        } elseif($memberOrRole instanceof Role) {
             $memberOrRole = $memberOrRole->id;
             $options['type'] = 'role';
         } else {
             try {
                 $memberOrRole = $this->guild->roles->resolve($memberOrRole)->id;
                 $options['type'] = 'role';
-            } catch (\InvalidArgumentException $e) {
+            } catch (InvalidArgumentException $e) {
                 $options['type'] = 'member';
             }
         }
         
-        if(!\is_int($allow) && !($allow instanceof \CharlotteDunois\Yasmin\Models\Permissions)) {
-            throw new \InvalidArgumentException('Allow has to be an int or an instance of Permissions');
+        if(!is_int($allow) && !($allow instanceof Permissions)) {
+            throw new InvalidArgumentException('Allow has to be an int or an instance of Permissions');
         }
         
-        if(!\is_int($deny) && !($deny instanceof \CharlotteDunois\Yasmin\Models\Permissions)) {
-            throw new \InvalidArgumentException('Deny has to be an int or an instance of Permissions');
+        if(!is_int($deny) && !($deny instanceof Permissions)) {
+            throw new InvalidArgumentException('Deny has to be an int or an instance of Permissions');
         }
         
-        if(\json_encode($allow) === \json_encode($deny)) {
-            throw new \InvalidArgumentException('Allow and deny must have different permissions');
+        if(json_encode($allow) === json_encode($deny)) {
+            throw new InvalidArgumentException('Allow and deny must have different permissions');
         }
         
         $options['allow'] = $allow;

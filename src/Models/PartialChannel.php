@@ -9,6 +9,16 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use DateTime;
+use Exception;
+use InvalidArgumentException;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents a partial channel (of a guild or a group DM).
  *
@@ -18,7 +28,7 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property string|null  $icon              The icon of the channel, or null.
  * @property int          $createdTimestamp  The timestamp when this channel was created.
  *
- * @property \DateTime    $createdAt         The DateTime instance of createdTimestamp.
+ * @property DateTime    $createdAt         The DateTime instance of createdTimestamp.
  */
 class PartialChannel extends ClientBase {
     /**
@@ -50,35 +60,38 @@ class PartialChannel extends ClientBase {
      * @var int
      */
     protected $createdTimestamp;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $channel) {
+
+	/**
+	 * @param Client $client
+	 * @param array $channel
+	 * @internal
+	 */
+    function __construct(Client $client, array $channel) {
         parent::__construct($client);
         
         $this->id = (string) $channel['id'];
         $this->name = $channel['name'] ?? null;
-        $this->type = \CharlotteDunois\Yasmin\Models\ChannelStorage::CHANNEL_TYPES[$channel['type']];
+        $this->type = ChannelStorage::CHANNEL_TYPES[$channel['type']];
         $this->icon = $channel['icon'] ?? null;
         
-        $this->createdTimestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id)->timestamp;
+        $this->createdTimestamp = (int) Snowflake::deconstruct($this->id)->timestamp;
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @throws \RuntimeException
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws RuntimeException
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
         switch($name) {
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
         }
         
@@ -93,11 +106,11 @@ class PartialChannel extends ClientBase {
      */
     function getIconURL(?int $size = null, string $format = 'png') {
         if($size & ($size - 1)) {
-            throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+            throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
         }
         
         if($this->icon !== null) {
-            return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['channelicons'], $this->id, $this->icon, $format).(!empty($size) ? '?size='.$size : '');
+            return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['channelicons'], $this->id, $this->icon, $format).(!empty($size) ? '?size='.$size : '');
         }
         
         return null;

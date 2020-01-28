@@ -9,6 +9,37 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use CharlotteDunois\Yasmin\Interfaces\ChannelStorageInterface;
+use CharlotteDunois\Yasmin\Interfaces\EmojiStorageInterface;
+use CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\GuildMemberStorageInterface;
+use CharlotteDunois\Yasmin\Interfaces\PresenceStorageInterface;
+use CharlotteDunois\Yasmin\Interfaces\RoleStorageInterface;
+use CharlotteDunois\Yasmin\Interfaces\StorageInterface;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\FileHelpers;
+use CharlotteDunois\Yasmin\Utils\ImageHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use DateTime;
+use Exception;
+use InvalidArgumentException;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use RuntimeException;
+use function array_map;
+use function array_values;
+use function in_array;
+use function is_string;
+use function mb_strtoupper;
+use function preg_match_all;
+use function property_exists;
+use function React\Promise\all;
+use function React\Promise\resolve;
+
 /**
  * Represents a guild. It's recommended to see if a guild is available before performing operations or reading data from it.
  *
@@ -23,11 +54,11 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property bool                                                            $large                        Whether the guild is considered large.
  * @property bool                                                            $lazy                         Whether this guild is run in lazy mode (on the Discord node).
  * @property int                                                             $memberCount                  How many members the guild has.
- * @property \CharlotteDunois\Yasmin\Interfaces\ChannelStorageInterface      $channels                     Holds a guild's channels, mapped by their ID.
- * @property \CharlotteDunois\Yasmin\Interfaces\EmojiStorageInterface        $emojis                       Holds a guild's emojis, mapped by their ID.
- * @property \CharlotteDunois\Yasmin\Interfaces\GuildMemberStorageInterface  $members                      Holds a guild's cached members, mapped by their ID.
- * @property \CharlotteDunois\Yasmin\Interfaces\RoleStorageInterface         $roles                        Holds a guild's roles, mapped by their ID.
- * @property \CharlotteDunois\Yasmin\Interfaces\PresenceStorageInterface     $presences                    Holds a guild's presences of members, mapped by user ID.
+ * @property ChannelStorageInterface      $channels                     Holds a guild's channels, mapped by their ID.
+ * @property EmojiStorageInterface        $emojis                       Holds a guild's emojis, mapped by their ID.
+ * @property GuildMemberStorageInterface  $members                      Holds a guild's cached members, mapped by their ID.
+ * @property RoleStorageInterface         $roles                        Holds a guild's roles, mapped by their ID.
+ * @property PresenceStorageInterface     $presences                    Holds a guild's presences of members, mapped by user ID.
  * @property string                                                          $defaultMessageNotifications  The type of message that should notify you. ({@see Guild::DEFAULT_MESSAGE_NOTIFICATIONS})
  * @property string                                                          $explicitContentFilter        The explicit content filter level of the guild. ({@see Guild::EXPLICIT_CONTENT_FILTER})
  * @property string                                                          $region                       The region the guild is located in.
@@ -48,15 +79,15 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property string|null                                                     $description                  Guild description used for Server Discovery, or null.
  * @property string|null                                                     $banner                       Guild banner hash used for Server Discovery, or null.
  *
- * @property \CharlotteDunois\Yasmin\Models\VoiceChannel|null                $afkChannel                   The guild's afk channel, or null.
- * @property \DateTime                                                       $createdAt                    The DateTime instance of createdTimestamp.
- * @property \CharlotteDunois\Yasmin\Models\Role                             $defaultRole                  The guild's default role.
- * @property \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface|null   $embedChannel                 The guild's embed channel, or null.
- * @property \CharlotteDunois\Yasmin\Models\GuildMember                      $me                           The guild member of the client user.
- * @property \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface|null   $systemChannel                The guild's system channel, or null.
+ * @property VoiceChannel|null                $afkChannel                   The guild's afk channel, or null.
+ * @property DateTime                                                       $createdAt                    The DateTime instance of createdTimestamp.
+ * @property Role $defaultRole                  The guild's default role.
+ * @property GuildChannelInterface|null   $embedChannel                 The guild's embed channel, or null.
+ * @property GuildMember $me                           The guild member of the client user.
+ * @property GuildChannelInterface|null   $systemChannel                The guild's system channel, or null.
  * @property bool                                                            $vanityURL                    Whether the guild has a vanity invite url.
  * @property bool                                                            $verified                     Whether the guild is verified.
- * @property \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface|null   $widgetChannel                The guild's widget channel, or null.
+ * @property GuildChannelInterface|null   $widgetChannel                The guild's widget channel, or null.
  */
 class Guild extends ClientBase {
     /**
@@ -105,31 +136,31 @@ class Guild extends ClientBase {
     
     /**
      * Holds a guild's channels, mapped by their ID.
-     * @var \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @var StorageInterface
      */
     protected $channels;
     
     /**
      * Holds a guild's emojis, mapped by their ID.
-     * @var \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @var StorageInterface
      */
     protected $emojis;
     
     /**
      * Holds a guild's cached members, mapped by their ID.
-     * @var \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @var StorageInterface
      */
     protected $members;
     
     /**
      * Holds a guild's presences of members, mapped by user ID.
-     * @var \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @var StorageInterface
      */
     protected $presences;
     
     /**
      * Holds a guild's roles, mapped by their ID.
-     * @var \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @var StorageInterface
      */
     protected $roles;
     
@@ -312,11 +343,14 @@ class Guild extends ClientBase {
      * @var int
      */
     protected $createdTimestamp;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $guild, ?int $shardID = null) {
+
+	/**
+	 * @param Client $client
+	 * @param array $guild
+	 * @param int|null $shardID
+	 * @internal
+	 */
+    function __construct(Client $client, array $guild, ?int $shardID = null) {
         parent::__construct($client);
         
         $channels = $this->client->getOption('internal.storages.channels');
@@ -332,7 +366,7 @@ class Guild extends ClientBase {
         $this->roles = new $roles($client, $this);
         
         $this->id = (string) $guild['id'];
-        $snowflake = \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id);
+        $snowflake = Snowflake::deconstruct($this->id);
         
         $this->shardID = ($shardID !== null ? $shardID : $snowflake->getShardID($this->client->getOption('shardCount')));
         $this->createdTimestamp = (int) $snowflake->timestamp;
@@ -345,15 +379,16 @@ class Guild extends ClientBase {
         
         $this->client->guilds->set($this->id, $this);
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @throws \RuntimeException
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws RuntimeException
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -362,7 +397,7 @@ class Guild extends ClientBase {
                 return $this->channels->get($this->afkChannelID);
             break;
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
             case 'defaultRole':
                 return $this->roles->get($this->id);
@@ -377,10 +412,10 @@ class Guild extends ClientBase {
                 return $this->channels->get($this->systemChannelID);
             break;
             case 'vanityURL':
-                return \in_array('VANITY_URL', $this->features);
+                return in_array('VANITY_URL', $this->features);
             break;
             case 'verified':
-                return \in_array('VERIFIED', $this->features);
+                return in_array('VERIFIED', $this->features);
             break;
             case 'widgetChannel':
                 return $this->channels->get($this->widgetChannelID);
@@ -404,14 +439,14 @@ class Guild extends ClientBase {
      * )
      * ```
      *
-     * @param \CharlotteDunois\Yasmin\Models\User|string  $user         A guild member or User instance, or the user ID.
+     * @param User|string  $user         A guild member or User instance, or the user ID.
      * @param string                                      $accessToken  The OAuth Access Token for the given user.
      * @param array                                       $options      Any options.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function addMember($user, string $accessToken, array $options = array()) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($user, $accessToken, $options) {
-            if($user instanceof \CharlotteDunois\Yasmin\Models\User) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($user, $accessToken, $options) {
+            if($user instanceof User) {
                 $user = $user->id;
             }
             
@@ -424,12 +459,12 @@ class Guild extends ClientBase {
             }
             
             if(!empty($options['roles'])) {
-                if($options['roles'] instanceof \CharlotteDunois\Collect\Collection) {
+                if($options['roles'] instanceof Collection) {
                     $options['roles'] = $options['roles']->all();
                 }
                 
-                $opts['roles'] = \array_values(\array_map(function ($role) {
-                    if($role instanceof \CharlotteDunois\Yasmin\Models\Role) {
+                $opts['roles'] = array_values(array_map(function ($role) {
+                    if($role instanceof Role) {
                         return $role->id;
                     }
                     
@@ -453,14 +488,14 @@ class Guild extends ClientBase {
     
     /**
      * Bans the given user. Resolves with $this.
-     * @param \CharlotteDunois\Yasmin\Models\GuildMember|\CharlotteDunois\Yasmin\Models\User|string  $user     A guild member or User instance, or the user ID.
+     * @param GuildMember|User|string  $user     A guild member or User instance, or the user ID.
      * @param int                                                                                    $days     Number of days of messages to delete (0-7).
      * @param string                                                                                 $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function ban($user, int $days = 0, string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($user, $days, $reason) {
-            if($user instanceof \CharlotteDunois\Yasmin\Models\User || $user instanceof \CharlotteDunois\Yasmin\Models\GuildMember) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($user, $days, $reason) {
+            if($user instanceof User || $user instanceof GuildMember) {
                 $user = $user->id;
             }
             
@@ -499,20 +534,20 @@ class Guild extends ClientBase {
      *
      * @param array   $options
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      * @see \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface
      */
     function createChannel(array $options, string $reason = '') {
         if(empty($options['name'])) {
-            throw new \InvalidArgumentException('Channel name can not be empty');
+            throw new InvalidArgumentException('Channel name can not be empty');
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
-            $data = \CharlotteDunois\Yasmin\Utils\DataHelpers::applyOptions($options, array(
+        return (new Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
+            $data = DataHelpers::applyOptions($options, array(
                 'name' => array('type' => 'string'),
                 'type' => array('type' => 'string', 'parse' => function ($val) {
-                    return (\CharlotteDunois\Yasmin\Models\ChannelStorage::CHANNEL_TYPES[$val] ?? 0);
+                    return (ChannelStorage::CHANNEL_TYPES[$val] ?? 0);
                 }),
                 'topic' => array('type' => 'string'),
                 'position' => array('type' => 'int'),
@@ -520,14 +555,14 @@ class Guild extends ClientBase {
                 'userLimit' => array('key' => 'user_limit', 'type' => 'int'),
                 'slowmode' => array('key' => 'rate_limit_per_user', 'type' => 'int'),
                 'permissionOverwrites' => array('key' => 'permission_overwrites', 'parse' => function ($val) {
-                    if($val instanceof \CharlotteDunois\Collect\Collection) {
+                    if($val instanceof Collection) {
                         $val = $val->all();
                     }
                     
-                    return \array_values($val);
+                    return array_values($val);
                 }),
                 'parent' => array('key' => 'parent_id', 'parse' => function ($val) {
-                    if($val instanceof \CharlotteDunois\Yasmin\Models\CategoryChannel) {
+                    if($val instanceof CategoryChannel) {
                         return $val->id;
                     }
                     
@@ -547,20 +582,20 @@ class Guild extends ClientBase {
      * Creates a new custom emoji in the guild. Resolves with an instance of Emoji.
      * @param string                                           $file   Filepath or URL, or file data.
      * @param string                                           $name
-     * @param array|\CharlotteDunois\Collect\Collection        $roles  An array or Collection of Role instances or role IDs.
+     * @param array|Collection        $roles  An array or Collection of Role instances or role IDs.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Emoji
      */
     function createEmoji(string $file, string $name, $roles = array(), string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($file, $name, $roles, $reason) {
-            \CharlotteDunois\Yasmin\Utils\FileHelpers::resolveFileResolvable($file)->done(function ($file) use ($name, $roles, $reason, $resolve, $reject) {
-                if($roles instanceof \CharlotteDunois\Collect\Collection) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($file, $name, $roles, $reason) {
+            FileHelpers::resolveFileResolvable($file)->done(function ($file) use ($name, $roles, $reason, $resolve, $reject) {
+                if($roles instanceof Collection) {
                     $roles = $roles->all();
                 }
                 
-                $roles = \array_map(function ($role) {
-                    if($role instanceof \CharlotteDunois\Yasmin\Models\Role) {
+                $roles = array_map(function ($role) {
+                    if($role instanceof Role) {
                         return $role->id;
                     }
                     
@@ -569,7 +604,7 @@ class Guild extends ClientBase {
                 
                 $options = array(
                     'name' => $name,
-                    'image' => \CharlotteDunois\Yasmin\Utils\DataHelpers::makeBase64URI($file),
+                    'image' => DataHelpers::makeBase64URI($file),
                     'roles' => $roles
                 );
                 
@@ -598,16 +633,16 @@ class Guild extends ClientBase {
      *
      * @param array   $options
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      * @see \CharlotteDunois\Yasmin\Models\Role
      */
     function createRole(array $options, string $reason = '') {
         if(!empty($options['color'])) {
-            $options['color'] = \CharlotteDunois\Yasmin\Utils\DataHelpers::resolveColor($options['color']);
+            $options['color'] = DataHelpers::resolveColor($options['color']);
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
             $this->client->apimanager()->endpoints->guild->createGuildRole($this->id, $options, $reason)->done(function ($data) use ($resolve) {
                 $role = $this->roles->factory($data);
                 $resolve($role);
@@ -617,10 +652,10 @@ class Guild extends ClientBase {
     
     /**
      * Deletes the guild.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function delete() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->guild->deleteGuild($this->id)->done(function () use ($resolve) {
                 $resolve();
             }, $reject);
@@ -651,45 +686,45 @@ class Guild extends ClientBase {
      *
      * @param array   $options
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function edit(array $options, string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
-            $data = \CharlotteDunois\Yasmin\Utils\DataHelpers::applyOptions($options, array(
+        return (new Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
+            $data = DataHelpers::applyOptions($options, array(
                 'name' => array('type' => 'string'),
                 'region' => array('type' => 'string', 'parse' => function ($val) {
-                    return ($val instanceof \CharlotteDunois\Yasmin\Models\VoiceRegion ? $val->id : $val);
+                    return ($val instanceof VoiceRegion ? $val->id : $val);
                 }),
                 'verificationLevel' => array('key' => 'verification_level', 'type' => 'int'),
                 'explicitContentFilter' => array('key' => 'explicit_content_filter', 'type' => 'int'),
                 'defaultMessageNotifications' => array('key' => 'default_message_notifications', 'type' => 'int'),
                 'afkChannel' => array('key' => 'afk_channel_id', 'parse' => function ($val) {
-                    return ($val instanceof \CharlotteDunois\Yasmin\Models\VoiceChannel ? $val->id : $val);
+                    return ($val instanceof VoiceChannel ? $val->id : $val);
                 }),
                 'afkTimeout' => array('key' => 'afk_timeout', 'type' => 'int'),
                 'systemChannel' => array('key' => 'system_channel_id', 'parse' => function ($val) {
-                    return ($val instanceof \CharlotteDunois\Yasmin\Models\TextChannel ? $val->id : $val);
+                    return ($val instanceof TextChannel ? $val->id : $val);
                 }),
                 'owner' => array('key' => 'owner_id', 'parse' => function ($val) {
-                    return ($val instanceof \CharlotteDunois\Yasmin\Models\GuildMember ? $val->id : $val);
+                    return ($val instanceof GuildMember ? $val->id : $val);
                 })
             ));
             
             $handleImg = function ($img) {
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeBase64URI($img);
+                return DataHelpers::makeBase64URI($img);
             };
             
             $files = array(
-                (isset($options['icon']) ? \CharlotteDunois\Yasmin\Utils\FileHelpers::resolveFileResolvable($options['icon'])->then($handleImg) : \React\Promise\resolve(null)),
-                (isset($options['splash']) ? \CharlotteDunois\Yasmin\Utils\FileHelpers::resolveFileResolvable($options['splash'])->then($handleImg) : \React\Promise\resolve(null))
+                (isset($options['icon']) ? FileHelpers::resolveFileResolvable($options['icon'])->then($handleImg) : resolve(null)),
+                (isset($options['splash']) ? FileHelpers::resolveFileResolvable($options['splash'])->then($handleImg) : resolve(null))
             );
             
-            \React\Promise\all($files)->done(function ($files) use (&$data, $reason, $resolve, $reject) {
-                if(\is_string($files[0])) {
+            all($files)->done(function ($files) use (&$data, $reason, $resolve, $reject) {
+                if(is_string($files[0])) {
                     $data['icon'] = $files[0];
                 }
                 
-                if(\is_string($files[1])) {
+                if(is_string($files[1])) {
                     $data['splash'] = $files[1];
                 }
                 
@@ -716,17 +751,17 @@ class Guild extends ClientBase {
      * ```
      *
      * @param array  $options
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\AuditLog
      */
     function fetchAuditLog(array $options = array()) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($options) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($options) {
             if(!empty($options['user'])) {
-                $options['user'] = ($options['user'] instanceof \CharlotteDunois\Yasmin\Models\User ? $options['user']->id : $options['user']);
+                $options['user'] = ($options['user'] instanceof User ? $options['user']->id : $options['user']);
             }
             
             $this->client->apimanager()->endpoints->guild->getGuildAuditLog($this->id, $options)->done(function ($data) use ($resolve) {
-                $audit = new \CharlotteDunois\Yasmin\Models\AuditLog($this->client, $this, $data);
+                $audit = new AuditLog($this->client, $this, $data);
                 $resolve($audit);
             }, $reject);
         }));
@@ -734,19 +769,19 @@ class Guild extends ClientBase {
     
     /**
      * Fetches a specific ban for a user. Resolves with an instance of GuildBan.
-     * @param \CharlotteDunois\Yasmin\Models\User|string  $user     An User instance or the user ID.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @param User|string  $user     An User instance or the user ID.
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\GuildBan
      */
     function fetchBan($user) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($user) {
-            if($user instanceof \CharlotteDunois\Yasmin\Models\User) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($user) {
+            if($user instanceof User) {
                 $user = $user->id;
             }
             
             $this->client->apimanager()->endpoints->guild->getGuildBan($this->id, $user)->done(function ($data) use ($resolve) {
                 $user = $this->client->users->patch($data['user']);
-                $ban = new \CharlotteDunois\Yasmin\Models\GuildBan($this->client, $this, $user, ($data['reason'] ?? null));
+                $ban = new GuildBan($this->client, $this, $user, ($data['reason'] ?? null));
                 
                 $resolve($ban);
             }, $reject);
@@ -755,17 +790,17 @@ class Guild extends ClientBase {
     
     /**
      * Fetch all bans of the guild. Resolves with a Collection of GuildBan instances, mapped by the user ID.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\GuildBan
      */
     function fetchBans() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->guild->getGuildBans($this->id)->done(function ($data) use ($resolve) {
-                $collect = new \CharlotteDunois\Collect\Collection();
+                $collect = new Collection();
                 
                 foreach($data as $ban) {
                     $user = $this->client->users->patch($ban['user']);
-                    $gban = new \CharlotteDunois\Yasmin\Models\GuildBan($this->client, $this, $user, ($ban['reason'] ?? null));
+                    $gban = new GuildBan($this->client, $this, $user, ($ban['reason'] ?? null));
                     
                     $collect->set($user->id, $gban);
                 }
@@ -777,16 +812,16 @@ class Guild extends ClientBase {
     
     /**
      * Fetches all invites of the guild. Resolves with a Collection of Invite instances, mapped by their code.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Invite
      */
     function fetchInvites() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->guild->getGuildInvites($this->id)->done(function ($data) use ($resolve) {
-                $collect = new \CharlotteDunois\Collect\Collection();
+                $collect = new Collection();
                 
                 foreach($data as $inv) {
-                    $invite = new \CharlotteDunois\Yasmin\Models\Invite($this->client, $inv);
+                    $invite = new Invite($this->client, $inv);
                     $collect->set($invite->code, $invite);
                 }
                 
@@ -798,12 +833,12 @@ class Guild extends ClientBase {
     /**
      * Fetches a specific guild member. Resolves with an instance of GuildMember.
      * @param string  $userid  The ID of the guild member.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\GuildMember
      */
     function fetchMember(string $userid) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($userid) {
-            if($this->members->has($userid) && ($this->members->get($userid) instanceof \CharlotteDunois\Yasmin\Models\GuildMember)) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($userid) {
+            if($this->members->has($userid) && ($this->members->get($userid) instanceof GuildMember)) {
                 return $resolve($this->members->get($userid));
             }
             
@@ -817,15 +852,15 @@ class Guild extends ClientBase {
      * Fetches all guild members. If `$query` is used, `$limit` must be set to a non-zero integer. Resolves with $this.
      * @param string  $query  Limit fetch to members with similar usernames.
      * @param int     $limit  Maximum number of members to request.
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function fetchMembers(string $query = '', int $limit = 0) {
         if(!empty($query) && $limit <= 0) {
-            throw new \InvalidArgumentException('Invalid arguments given - if query is given, limit must be supplied as well');
+            throw new InvalidArgumentException('Invalid arguments given - if query is given, limit must be supplied as well');
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($query, $limit) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($query, $limit) {
             if($this->members->count() >= $this->memberCount) {
                 $resolve($this);
                 return;
@@ -867,7 +902,7 @@ class Guild extends ClientBase {
             $this->client->on('guildMembersChunk', $listener);
             
             $this->client->shards->get($this->shardID)->ws->send(array(
-                'op' => \CharlotteDunois\Yasmin\WebSocket\WSManager::OPCODES['REQUEST_GUILD_MEMBERS'],
+                'op' => WSManager::OPCODES['REQUEST_GUILD_MEMBERS'],
                 'd' => array(
                     'guild_id' => $this->id,
                     'query' => $query,
@@ -882,7 +917,7 @@ class Guild extends ClientBase {
                 
                 if($this->members->count() < $this->memberCount) {
                     $this->client->removeListener('guildMembersChunk', $listener);
-                    $reject(new \Exception('Members did not arrive in time'));
+                    $reject(new Exception('Members did not arrive in time'));
                     return;
                 }
                 
@@ -894,10 +929,10 @@ class Guild extends ClientBase {
     /**
      * Fetches the amount of members from the guild based on how long they have been inactive which would be pruned. Resolves with an integer.
      * @param int     $days
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function fetchPruneMembers(int $days) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($days) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($days) {
             $this->client->apimanager()->endpoints->guild->getGuildPruneCount($this->id, $days)->done(function ($data) use ($resolve) {
                 $resolve($data['pruned']);
             }, $reject);
@@ -906,14 +941,14 @@ class Guild extends ClientBase {
     
     /**
      * Returns the vanity invite. The guild must be partnered, i.e. have 'VANITY_URL' in guild features. Resolves with an instance of Invite.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Invite
      */
     function fetchVanityInvite() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             if($this->vanityInviteCode !== null) {
                 return $this->client->apimanager()->endpoints->invite->getInvite($this->vanityInviteCode)->done(function ($data) use ($resolve) {
-                    $invite = new \CharlotteDunois\Yasmin\Models\Invite($this->client, $data);
+                    $invite = new Invite($this->client, $data);
                     $resolve($invite);
                 }, $reject);
             }
@@ -921,7 +956,7 @@ class Guild extends ClientBase {
             $this->client->apimanager()->endpoints->guild->getGuildVanityURL($this->id)->then(function ($data) {
                 return $this->client->apimanager()->endpoints->invite->getInvite($data['code']);
             })->done(function ($data) use ($resolve) {
-                $invite = new \CharlotteDunois\Yasmin\Models\Invite($this->client, $data);
+                $invite = new Invite($this->client, $data);
                 $resolve($invite);
             }, $reject);
         }));
@@ -929,16 +964,16 @@ class Guild extends ClientBase {
     
     /**
      * Fetches the guild voice regions. Resolves with a Collection of Voice Region instances, mapped by their ID.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\VoiceRegion
      */
     function fetchVoiceRegions() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->guild->getGuildVoiceRegions($this->id)->done(function ($data) use ($resolve) {
-                $collect = new \CharlotteDunois\Collect\Collection();
+                $collect = new Collection();
                 
                 foreach($data as $region) {
-                    $voice = new \CharlotteDunois\Yasmin\Models\VoiceRegion($this->client, $region);
+                    $voice = new VoiceRegion($this->client, $region);
                     $collect->set($voice->id, $voice);
                 }
                 
@@ -949,16 +984,16 @@ class Guild extends ClientBase {
     
     /**
      * Fetches the guild's webhooks. Resolves with a Collection of Webhook instances, mapped by their ID.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Webhook
      */
     function fetchWebhooks() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->webhook->getGuildsWebhooks($this->id)->done(function ($data) use ($resolve) {
-                $collect = new \CharlotteDunois\Collect\Collection();
+                $collect = new Collection();
                 
                 foreach($data as $web) {
-                    $hook = new \CharlotteDunois\Yasmin\Models\Webhook($this->client, $web);
+                    $hook = new Webhook($this->client, $web);
                     $collect->set($hook->id, $hook);
                 }
                 
@@ -972,15 +1007,15 @@ class Guild extends ClientBase {
      * @param int|null  $size    One of 128, 256, 512, 1024 or 2048.
      * @param string    $format  One of png, jpg or webp.
      * @return string|null
-     * @throws \InvalidArgumentException Thrown if $size is not a power of 2
+     * @throws InvalidArgumentException Thrown if $size is not a power of 2
      */
     function getBannerURL(?int $size = null, string $format = 'png') {
-        if(!\CharlotteDunois\Yasmin\Utils\ImageHelpers::isPowerOfTwo($size)) {
-            throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+        if(!ImageHelpers::isPowerOfTwo($size)) {
+            throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
         }
         
         if($this->banner !== null) {
-            return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['guildbanners'], $this->id, $this->banner, $format).(!empty($size) ? '?size='.$size : '');
+            return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['guildbanners'], $this->id, $this->banner, $format).(!empty($size) ? '?size='.$size : '');
         }
         
         return null;
@@ -991,11 +1026,11 @@ class Guild extends ClientBase {
      * @param int|null  $size    One of 128, 256, 512, 1024 or 2048.
      * @param string    $format  One of png, jpg or webp.
      * @return string|null
-     * @throws \InvalidArgumentException Thrown if $size is not a power of 2
+     * @throws InvalidArgumentException Thrown if $size is not a power of 2
      */
     function getIconURL(?int $size = null, string $format = '') {
-        if(!\CharlotteDunois\Yasmin\Utils\ImageHelpers::isPowerOfTwo($size)) {
-            throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+        if(!ImageHelpers::isPowerOfTwo($size)) {
+            throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
         }
         
         if($this->icon === null) {
@@ -1003,10 +1038,10 @@ class Guild extends ClientBase {
         }
         
         if(empty($format)) {
-            $format = \CharlotteDunois\Yasmin\Utils\ImageHelpers::getImageExtension($this->icon);
+            $format = ImageHelpers::getImageExtension($this->icon);
         }
         
-        return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['icons'], $this->id, $this->icon, $format).(!empty($size) ? '?size='.$size : '');
+        return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['icons'], $this->id, $this->icon, $format).(!empty($size) ? '?size='.$size : '');
     }
     
     /**
@@ -1014,14 +1049,14 @@ class Guild extends ClientBase {
      * @return string
      */
     function getNameAcronym() {
-        \preg_match_all('/\w+/iu', $this->name, $matches);
+        preg_match_all('/\w+/iu', $this->name, $matches);
         
         $name = '';
         foreach($matches[0] as $word) {
             $name .= $word[0];
         }
         
-        return \mb_strtoupper($name);
+        return mb_strtoupper($name);
     }
     
     /**
@@ -1032,11 +1067,11 @@ class Guild extends ClientBase {
      */
     function getSplashURL(?int $size = null, string $format = 'png') {
         if($size & ($size - 1)) {
-            throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+            throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
         }
         
         if($this->splash !== null) {
-            return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['splashes'], $this->id, $this->splash, $format).(!empty($size) ? '?size='.$size : '');
+            return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['splashes'], $this->id, $this->splash, $format).(!empty($size) ? '?size='.$size : '');
         }
         
         return null;
@@ -1044,10 +1079,10 @@ class Guild extends ClientBase {
     
     /**
      * Leaves the guild.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function leave() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->user->leaveUserGuild($this->id)->done(function () use ($resolve) {
                 $resolve();
             }, $reject);
@@ -1059,10 +1094,10 @@ class Guild extends ClientBase {
      * @param int     $days
      * @param bool    $withCount  Whether the amount of pruned members is returned, discouraged for large guilds.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function pruneMembers(int $days, bool $withCount = false, string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($days, $withCount, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($days, $withCount, $reason) {
             $this->client->apimanager()->endpoints->guild->beginGuildPrune($this->id, $days, $withCount, $reason)->done(function ($data) use ($resolve) {
                 $resolve(($data['pruned'] ?? null));
             }, $reject);
@@ -1071,9 +1106,9 @@ class Guild extends ClientBase {
     
     /**
      * Edits the AFK channel of the guild. Resolves with $this.
-     * @param string|\CharlotteDunois\Yasmin\Models\VoiceChannel|null  $channel
+     * @param string|VoiceChannel|null  $channel
      * @param string                                                   $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setAFKChannel($channel, string $reason = '') {
         return $this->edit(array('afkChannel' => $channel), $reason);
@@ -1083,7 +1118,7 @@ class Guild extends ClientBase {
      * Edits the AFK timeout of the guild. Resolves with $this.
      * @param int|null $timeout
      * @param string   $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setAFKTimeout($timeout, string $reason = '') {
         return $this->edit(array('afkTimeout' => $timeout), $reason);
@@ -1093,14 +1128,14 @@ class Guild extends ClientBase {
      * Batch-updates the guild's channels positions. Channels is an array of `channel ID (string)|GuildChannelInterface => position (int)` pairs. Resolves with $this.
      * @param array   $channels
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setChannelPositions(array $channels, string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($channels, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($channels, $reason) {
             $options = array();
             
             foreach($channels as $chan => $position) {
-                if($chan instanceof \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface) {
+                if($chan instanceof GuildChannelInterface) {
                     $chan = $chan->getId();
                 }
                 
@@ -1117,14 +1152,14 @@ class Guild extends ClientBase {
      * Batch-updates the guild's roles positions. Roles is an array of `role ID (string)|Role => position (int)` pairs. Resolves with $this.
      * @param array   $roles
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setRolePositions(array $roles, string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($roles, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($roles, $reason) {
             $options = array();
             
             foreach($roles as $role => $position) {
-                if($role instanceof \CharlotteDunois\Yasmin\Models\Role) {
+                if($role instanceof Role) {
                     $role = $role->id;
                 }
                 
@@ -1141,7 +1176,7 @@ class Guild extends ClientBase {
      * Edits the level of the explicit content filter. Resolves with $this.
      * @param int     $filter
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setExplicitContentFilter(int $filter, string $reason = '') {
         return $this->edit(array('explicitContentFilter' => $filter), $reason);
@@ -1151,7 +1186,7 @@ class Guild extends ClientBase {
      * Updates the guild icon. Resolves with $this.
      * @param string  $icon    A filepath or URL, or data.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setIcon(string $icon, string $reason = '') {
         return $this->edit(array('icon' => $icon), $reason);
@@ -1161,7 +1196,7 @@ class Guild extends ClientBase {
      * Edits the name of the guild. Resolves with $this.
      * @param string  $name
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setName(string $name, string $reason = '') {
         return $this->edit(array('name' => $name), $reason);
@@ -1169,9 +1204,9 @@ class Guild extends ClientBase {
     
     /**
      * Sets a new owner for the guild. Resolves with $this.
-     * @param string|\CharlotteDunois\Yasmin\Models\GuildMember  $owner
+     * @param string|GuildMember $owner
      * @param string                                             $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setOwner($owner, string $reason = '') {
         return $this->edit(array('owner' => $owner), $reason);
@@ -1179,9 +1214,9 @@ class Guild extends ClientBase {
     
     /**
      * Edits the region of the guild. Resolves with $this.
-     * @param string|\CharlotteDunois\Yasmin\Models\VoiceRegion  $region
+     * @param string|VoiceRegion $region
      * @param string                                             $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setRegion($region, string $reason = '') {
         return $this->edit(array('region' => $region), $reason);
@@ -1191,7 +1226,7 @@ class Guild extends ClientBase {
      * Updates the guild splash. Resolves with $this.
      * @param string  $splash  A filepath or URL, or data.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setSplash(string $splash, string $reason = '') {
         return $this->edit(array('splash' => $splash), $reason);
@@ -1199,9 +1234,9 @@ class Guild extends ClientBase {
     
     /**
      * Edits the system channel of the guild. Resolves with $this.
-     * @param string|\CharlotteDunois\Yasmin\Models\TextChannel|null  $channel
+     * @param string|TextChannel|null  $channel
      * @param string                                                  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setSystemChannel($channel, string $reason = '') {
         return $this->edit(array('systemChannel' => $channel), $reason);
@@ -1211,7 +1246,7 @@ class Guild extends ClientBase {
      * Edits the verification level of the guild. Resolves with $this.
      * @param int     $level
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setVerificationLevel(int $level, string $reason = '') {
         return $this->edit(array('verificationLevel' => $level), $reason);
@@ -1219,13 +1254,13 @@ class Guild extends ClientBase {
     
     /**
      * Unbans the given user. Resolves with $this.
-     * @param \CharlotteDunois\Yasmin\Models\User|string  $user     An User instance or the user ID.
+     * @param User|string  $user     An User instance or the user ID.
      * @param string                                      $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function unban($user, string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($user, $reason) {
-            if($user instanceof \CharlotteDunois\Yasmin\Models\User) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($user, $reason) {
+            if($user instanceof User) {
                 $user = $user->id;
             }
             
@@ -1234,12 +1269,14 @@ class Guild extends ClientBase {
             }, $reject);
         }));
     }
-    
-    /**
-     * @return \CharlotteDunois\Yasmin\Models\GuildMember
-     * @internal
-     */
-    function _addMember(array $member, bool $initial = false) {
+
+	/**
+	 * @param array $member
+	 * @param bool $initial
+	 * @return GuildMember
+	 * @internal
+	 */
+	function _addMember(array $member, bool $initial = false) {
         $guildmember = $this->members->factory($member);
         
         if(!$initial) {
@@ -1248,12 +1285,13 @@ class Guild extends ClientBase {
         
         return $guildmember;
     }
-    
-    /**
-     * @return \CharlotteDunois\Yasmin\Models\GuildMember|null
-     * @internal
-     */
-    function _removeMember(string $userid) {
+
+	/**
+	 * @param string $userid
+	 * @return GuildMember|null
+	 * @internal
+	 */
+	function _removeMember(string $userid) {
         if($this->members->has($userid)) {
             $member = $this->members->get($userid);
             $this->members->delete($userid);
@@ -1268,12 +1306,13 @@ class Guild extends ClientBase {
         
         return null;
     }
-    
-    /**
-     * @return void
-     * @internal
-     */
-    function _patch(array $guild) {
+
+	/**
+	 * @param array $guild
+	 * @return void
+	 * @internal
+	 */
+	function _patch(array $guild) {
         $this->available = (empty($guild['unavailable']));
         
         if(!$this->available) {
@@ -1283,7 +1322,7 @@ class Guild extends ClientBase {
         $this->name = (string) ($guild['name'] ?? $this->name);
         $this->icon = $guild['icon'] ?? $this->icon;
         $this->splash = $guild['splash'] ?? $this->splash;
-        $this->ownerID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['owner_id'] ?? $this->ownerID), 'string');
+        $this->ownerID = DataHelpers::typecastVariable(($guild['owner_id'] ?? $this->ownerID), 'string');
         $this->large = (bool) ($guild['large'] ?? $this->large);
         $this->lazy = !empty($guild['lazy']);
         $this->memberCount = (int) ($guild['member_count']  ?? $this->memberCount);
@@ -1292,24 +1331,24 @@ class Guild extends ClientBase {
         $this->explicitContentFilter = (isset($guild['explicit_content_filter']) ? (self::EXPLICIT_CONTENT_FILTER[$guild['explicit_content_filter']] ?? $this->explicitContentFilter) : $this->explicitContentFilter);
         $this->region = $guild['region'] ?? $this->region;
         $this->verificationLevel = (isset($guild['verification_level']) ? (self::VERIFICATION_LEVEL[$guild['verification_level']] ?? $this->verificationLevel) : $this->verificationLevel);
-        $this->systemChannelID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['system_channel_id'] ?? $this->systemChannelID), 'string');
+        $this->systemChannelID = DataHelpers::typecastVariable(($guild['system_channel_id'] ?? $this->systemChannelID), 'string');
         
-        $this->afkChannelID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['afk_channel_id'] ?? $this->afkChannelID), 'string');
+        $this->afkChannelID = DataHelpers::typecastVariable(($guild['afk_channel_id'] ?? $this->afkChannelID), 'string');
         $this->afkTimeout = $guild['afk_timeout'] ?? $this->afkTimeout;
         $this->features = $guild['features'] ?? $this->features;
         $this->mfaLevel = (isset($guild['mfa_level']) ? (self::MFA_LEVEL[$guild['mfa_level']] ?? $this->mfaLevel) : $this->mfaLevel);
-        $this->applicationID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['application_id'] ?? $this->applicationID), 'string');
+        $this->applicationID = DataHelpers::typecastVariable(($guild['application_id'] ?? $this->applicationID), 'string');
         
         $this->embedEnabled = (bool) ($guild['embed_enabled'] ?? $this->embedEnabled);
-        $this->embedChannelID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['embed_channel_id'] ?? $this->embedChannelID), 'string');
+        $this->embedChannelID = DataHelpers::typecastVariable(($guild['embed_channel_id'] ?? $this->embedChannelID), 'string');
         $this->widgetEnabled = (bool) ($guild['widget_enabled'] ?? $this->widgetEnabled);
-        $this->widgetChannelID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['widget_channel_id'] ?? $this->widgetChannelID), 'string');
+        $this->widgetChannelID = DataHelpers::typecastVariable(($guild['widget_channel_id'] ?? $this->widgetChannelID), 'string');
         
-        $this->maxPresences = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['max_presences'] ?? $this->maxPresences), 'int');
-        $this->maxMembers = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['max_members'] ?? $this->maxMembers), 'int');
-        $this->vanityInviteCode = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['vanity_url_code'] ?? $this->vanityInviteCode), 'string');
-        $this->description = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['description'] ?? $this->description), 'string');
-        $this->banner = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($guild['banner'] ?? $this->banner), 'string');
+        $this->maxPresences = DataHelpers::typecastVariable(($guild['max_presences'] ?? $this->maxPresences), 'int');
+        $this->maxMembers = DataHelpers::typecastVariable(($guild['max_members'] ?? $this->maxMembers), 'int');
+        $this->vanityInviteCode = DataHelpers::typecastVariable(($guild['vanity_url_code'] ?? $this->vanityInviteCode), 'string');
+        $this->description = DataHelpers::typecastVariable(($guild['description'] ?? $this->description), 'string');
+        $this->banner = DataHelpers::typecastVariable(($guild['banner'] ?? $this->banner), 'string');
         
         if(isset($guild['roles'])) {
             $this->roles->clear();

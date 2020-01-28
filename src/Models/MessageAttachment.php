@@ -9,6 +9,19 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use DateTime;
+use Exception;
+use RuntimeException;
+use function basename;
+use function bin2hex;
+use function filter_var;
+use function property_exists;
+use function random_bytes;
+use function realpath;
+use const FILTER_VALIDATE_URL;
+
 /**
  * Represents an attachment (from a message).
  *
@@ -20,7 +33,7 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property int|null   $width              The width (if image), or null.
  * @property int        $createdTimestamp   The timestamp of when this attachment was created.
  *
- * @property \DateTime  $createdAt          An DateTime instance of the createdTimestamp.
+ * @property DateTime  $createdAt          An DateTime instance of the createdTimestamp.
  */
 class MessageAttachment extends Base {
     /**
@@ -77,32 +90,35 @@ class MessageAttachment extends Base {
      * @param array  $attachment  This parameter is used internally and should not be used.
      */
     function __construct(array $attachment = array()) {
+		parent::__construct();
+
         if(!empty($attachment)) {
             $this->id = (string) $attachment['id'];
             $this->filename = (string) $attachment['filename'];
             $this->size = (int) $attachment['size'];
             $this->url = (string) $attachment['url'];
-            $this->height = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($attachment['height'] ?? null), 'int');
-            $this->width = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($attachment['width'] ?? null), 'int');
+            $this->height = DataHelpers::typecastVariable(($attachment['height'] ?? null), 'int');
+            $this->width = DataHelpers::typecastVariable(($attachment['width'] ?? null), 'int');
             
-            $this->createdTimestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id)->timestamp;
+            $this->createdTimestamp = (int) Snowflake::deconstruct($this->id)->timestamp;
         }
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @throws \RuntimeException
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws RuntimeException
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
         switch($name) {
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
         }
         
@@ -120,21 +136,22 @@ class MessageAttachment extends Base {
         $this->filename = $filename;
         return $this;
     }
-    
-    /**
-     * Returns a proper message files array.
-     * @return array
-     * @internal
-     */
+
+	/**
+	 * Returns a proper message files array.
+	 * @return array
+	 * @throws Exception
+	 * @internal
+	 */
     function _getMessageFilesArray() {
         $props = array(
             'name' => $this->filename
         );
         
-        $file = @\realpath($this->attachment);
+        $file = @realpath($this->attachment);
         if($file) {
             $props['path'] = $file;
-        } elseif(\filter_var($this->attachment, \FILTER_VALIDATE_URL)) {
+        } elseif(filter_var($this->attachment, FILTER_VALIDATE_URL)) {
             $props['path'] = $this->attachment;
         } else {
             $props['data'] = $this->attachment;
@@ -142,9 +159,9 @@ class MessageAttachment extends Base {
         
         if(empty($props['name'])) {
             if(!empty($props['path'])) {
-                $props['name'] = \basename($props['path']);
+                $props['name'] = basename($props['path']);
             } else {
-                $props['name'] = 'file-'.\bin2hex(\random_bytes(3)).'.jpg';
+                $props['name'] = 'file-'. bin2hex(random_bytes(3)).'.jpg';
             }
         }
         

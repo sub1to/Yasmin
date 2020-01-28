@@ -9,20 +9,30 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\GuildMemberStorageInterface;
+use Exception;
+use InvalidArgumentException;
+use function is_int;
+use function is_string;
+
 /**
  * Guild Member Storage to store guild members, utilizes Collection.
  */
-class GuildMemberStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\GuildMemberStorageInterface {
+class GuildMemberStorage extends Storage implements GuildMemberStorageInterface {
     /**
      * The guild this storage belongs to.
-     * @var \CharlotteDunois\Yasmin\Models\Guild
+     * @var Guild
      */
     protected $guild;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Guild $guild, ?array $data = null) {
+
+	/**
+	 * @param Client $client
+	 * @param Guild $guild
+	 * @param array|null $data
+	 * @internal
+	 */
+    function __construct(Client $client, Guild $guild, ?array $data = null) {
         parent::__construct($client, $data);
         $this->guild = $guild;
         
@@ -31,28 +41,28 @@ class GuildMemberStorage extends Storage implements \CharlotteDunois\Yasmin\Inte
     
     /**
      * Resolves given data to a guildmember.
-     * @param \CharlotteDunois\Yasmin\Models\GuildMember|\CharlotteDunois\Yasmin\Models\User|string|int  $guildmember  string/int = user ID
-     * @return \CharlotteDunois\Yasmin\Models\GuildMember
-     * @throws \InvalidArgumentException
+     * @param GuildMember|User|string|int  $guildmember  string/int = user ID
+     * @return GuildMember
+     * @throws InvalidArgumentException
      */
     function resolve($guildmember) {
-        if($guildmember instanceof \CharlotteDunois\Yasmin\Models\GuildMember) {
+        if($guildmember instanceof GuildMember) {
             return $guildmember;
         }
         
-        if($guildmember instanceof \CharlotteDunois\Yasmin\Models\User) {
+        if($guildmember instanceof User) {
             $guildmember = $guildmember->id;
         }
         
-        if(\is_int($guildmember)) {
+        if(is_int($guildmember)) {
             $guildmember = (string) $guildmember;
         }
         
-        if(\is_string($guildmember) && parent::has($guildmember)) {
+        if(is_string($guildmember) && parent::has($guildmember)) {
             return parent::get($guildmember);
         }
         
-        throw new \InvalidArgumentException('Unable to resolve unknown guild member');
+        throw new InvalidArgumentException('Unable to resolve unknown guild member');
     }
     
     /**
@@ -67,7 +77,7 @@ class GuildMemberStorage extends Storage implements \CharlotteDunois\Yasmin\Inte
     /**
      * {@inheritdoc}
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\GuildMember|null
+     * @return GuildMember|null
      */
     function get($key) {
         return parent::get($key);
@@ -76,7 +86,7 @@ class GuildMemberStorage extends Storage implements \CharlotteDunois\Yasmin\Inte
     /**
      * {@inheritdoc}
      * @param string                                      $key
-     * @param \CharlotteDunois\Yasmin\Models\GuildMember  $value
+     * @param GuildMember $value
      * @return $this
      */
     function set($key, $value) {
@@ -93,13 +103,14 @@ class GuildMemberStorage extends Storage implements \CharlotteDunois\Yasmin\Inte
         parent::delete($key);
         return $this;
     }
-    
-    /**
-     * Factory to create (or retrieve existing) guild members.
-     * @param array  $data
-     * @return \CharlotteDunois\Yasmin\Models\GuildMember
-     * @internal
-     */
+
+	/**
+	 * Factory to create (or retrieve existing) guild members.
+	 * @param array $data
+	 * @return GuildMember
+	 * @throws Exception
+	 * @internal
+	 */
     function factory(array $data) {
         if(parent::has($data['user']['id'])) {
             $member = parent::get($data['user']['id']);
@@ -107,7 +118,7 @@ class GuildMemberStorage extends Storage implements \CharlotteDunois\Yasmin\Inte
             return $member;
         }
         
-        $member = new \CharlotteDunois\Yasmin\Models\GuildMember($this->client, $this->guild, $data);
+        $member = new GuildMember($this->client, $this->guild, $data);
         $this->set($member->id, $member);
         return $member;
     }

@@ -9,15 +9,21 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Events;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\WSEventInterface;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use function React\Promise\resolve;
+
 /**
  * WS Event
  * @see https://discordapp.com/developers/docs/topics/gateway#guild-create
  * @internal
  */
-class GuildCreate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
+class GuildCreate implements WSEventInterface {
     /**
      * The client.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
@@ -27,7 +33,7 @@ class GuildCreate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface
      */
     protected $ready = false;
     
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager) {
+    function __construct(Client $client, WSManager $wsmanager) {
         $this->client = $client;
         
         $this->client->once('ready', function () {
@@ -35,7 +41,7 @@ class GuildCreate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface
         });
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void {
+    function handle(WSConnection $ws, $data): void {
         $guild = $this->client->guilds->get($data['id']);
         if($guild) {
             if(empty($data['unavailable'])) {
@@ -55,7 +61,7 @@ class GuildCreate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface
             } elseif($guild->me === null) {
                 $fetchAll = $guild->fetchMember($this->client->user->id);
             } else {
-                $fetchAll = \React\Promise\resolve();
+                $fetchAll = resolve();
             }
             
             $fetchAll->done(function () use ($guild, $ws) {

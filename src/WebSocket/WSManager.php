@@ -9,20 +9,41 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket;
 
+use CharlotteDunois\Events\EventEmitterInterface;
+use CharlotteDunois\Events\EventEmitterTrait;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\WSEncodingInterface;
+use Exception;
+use LogicException;
+use Ratchet\Client\Connector;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use RuntimeException;
+use function class_exists;
+use function class_implements;
+use function get_class;
+use function http_build_query;
+use function in_array;
+use function rtrim;
+use function str_replace;
+use function strpos;
+use function time;
+use function ucwords;
+
 /**
  * Manages the WS connections.
  *
- * @property \CharlotteDunois\Yasmin\Client                          $client
- * @property \Ratchet\Client\Connector                               $connector
- * @property \CharlotteDunois\Yasmin\Interfaces\WSEncodingInterface  $encoding
+ * @property Client                          $client
+ * @property Connector                               $connector
+ * @property WSEncodingInterface  $encoding
  * @property string                                                  $gateway
  * @property int                                                     $lastIdentify
- * @property \CharlotteDunois\Yasmin\WebSocket\WSHandler             $wshandler
+ * @property WSHandler $wshandler
  *
  * @internal
  */
-class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
-    use \CharlotteDunois\Events\EventEmitterTrait;
+class WSManager implements EventEmitterInterface {
+    use EventEmitterTrait;
     
     /**
      * WS OP codes.
@@ -78,22 +99,22 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
     );
     
     /**
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
     /**
-     * @var \Ratchet\Client\Connector
+     * @var Connector
      */
     protected $connector;
     
     /**
-     * @var \CharlotteDunois\Yasmin\WebSocket\WSHandler
+     * @var WSHandler
      */
     protected $wshandler;
     
     /**
-     * @var \CharlotteDunois\Yasmin\WebSocket\WSConnection[]
+     * @var WSConnection[]
      */
     protected $connections = array();
     
@@ -108,7 +129,7 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
     protected $compression;
     
     /**
-     * @var \CharlotteDunois\Yasmin\Interfaces\WSEncodingInterface
+     * @var WSEncodingInterface
      */
     protected $encoding;
     
@@ -132,35 +153,35 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
     
     /**
      * DO NOT initialize this class yourself.
-     * @param \CharlotteDunois\Yasmin\Client  $client
-     * @throws \RuntimeException
+     * @param Client  $client
+     * @throws RuntimeException
      */
-    function __construct(\CharlotteDunois\Yasmin\Client $client) {
+    function __construct(Client $client) {
         $this->client = $client;
-        $this->wshandler = new \CharlotteDunois\Yasmin\WebSocket\WSHandler($this);
+        $this->wshandler = new WSHandler($this);
         
-        $compression = $this->client->getOption('ws.compression', \CharlotteDunois\Yasmin\Client::WS_DEFAULT_COMPRESSION);
+        $compression = $this->client->getOption('ws.compression', Client::WS_DEFAULT_COMPRESSION);
         
-        $name = \str_replace('-', '', \ucwords($compression, '-'));
-        if(\strpos($name, '\\') === false) {
+        $name = str_replace('-', '', ucwords($compression, '-'));
+        if(strpos($name, '\\') === false) {
             $name = '\\CharlotteDunois\\Yasmin\\WebSocket\\Compression\\'.$name;
         }
         
-        if(!\class_exists($name, true)) {
-            throw new \RuntimeException('Specified WS compression class does not exist');
+        if(!class_exists($name, true)) {
+            throw new RuntimeException('Specified WS compression class does not exist');
         }
         
         $name::supported();
         
-        $interfaces = \class_implements($name);
-        if(!\in_array('CharlotteDunois\\Yasmin\\Interfaces\\WSCompressionInterface', $interfaces)) {
-            throw new \RuntimeException('Specified WS compression class does not implement necessary interface');
+        $interfaces = class_implements($name);
+        if(!in_array('CharlotteDunois\\Yasmin\\Interfaces\\WSCompressionInterface', $interfaces)) {
+            throw new RuntimeException('Specified WS compression class does not implement necessary interface');
         }
         
         $this->compression = $name;
         
         if(!$this->connector) {
-            $this->connector = new \Ratchet\Client\Connector($this->client->loop);
+            $this->connector = new Connector($this->client->loop);
         }
         
         $listener = function () {
@@ -176,16 +197,16 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
             $this->removeListener('self.ws.ready', $listener);
         });
     }
-    
-    /**
-     * @return bool
-     * @throws \Exception
-     * @internal
-     */
+
+	/**
+	 * @param $name
+	 * @return bool
+	 * @internal
+	 */
     function __isset($name) {
         try {
             return $this->$name !== null;
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             if($e->getTrace()[0]['function'] === '__get') {
                 return false;
             }
@@ -193,11 +214,11 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
             throw $e;
         }
     }
-    
-    /**
-     * @return mixed
-     * @throws \RuntimeException
-     */
+
+	/**
+	 * @param $name
+	 * @return mixed
+	 */
     function __get($name) {
         switch($name) {
             case 'client':
@@ -223,7 +244,7 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
             break;
         }
         
-        throw new \RuntimeException('Undefined property: '.\get_class($this).'::$'.$name);
+        throw new RuntimeException('Undefined property: '. get_class($this).'::$'.$name);
     }
     
     /**
@@ -235,26 +256,27 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
             $ws->disconnect();
         }
     }
-    
-    /**
-     * Connects the specified shard to the gateway url. Resolves with an instance of WSConnection.
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \RuntimeException
-     * @throws \LogicException
-     * @see \CharlotteDunois\Yasmin\WebSocket\WSConnection
-     */
+
+	/**
+	 * Connects the specified shard to the gateway url. Resolves with an instance of WSConnection.
+	 * @param int $shardID
+	 * @param string|null $gateway
+	 * @param array $querystring
+	 * @return ExtendedPromiseInterface
+	 * @see \CharlotteDunois\Yasmin\WebSocket\WSConnection
+	 */
     function connectShard(int $shardID, ?string $gateway = null, array $querystring = array()) {
         if(!$gateway && !$this->gateway) {
-            throw new \RuntimeException('Unable to connect to unknown gateway for shard '.$shardID);
+            throw new RuntimeException('Unable to connect to unknown gateway for shard '.$shardID);
         }
         
         if(empty($this->client->token)) {
-            throw new \LogicException('No client token to start with');
+            throw new LogicException('No client token to start with');
         }
         
-        if(($this->lastIdentify ?? 0) > (\time() - 5)) {
-            return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($shardID, $gateway, $querystring) {
-                $this->client->addTimer((5 - (\time() - $this->lastIdentify)), function () use ($shardID, $gateway, $querystring, $resolve, $reject) {
+        if(($this->lastIdentify ?? 0) > (time() - 5)) {
+            return (new Promise(function (callable $resolve, callable $reject) use ($shardID, $gateway, $querystring) {
+                $this->client->addTimer((5 - (time() - $this->lastIdentify)), function () use ($shardID, $gateway, $querystring, $resolve, $reject) {
                     $this->connectShard($shardID, $gateway, $querystring)->done($resolve, $reject);
                 });
             }));
@@ -266,9 +288,9 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
                 $gateway = $this->gateway;
             }
             
-            if(($this->lastIdentify ?? 0) > (\time() - 30)) { // Make sure we reconnect after at least 30 seconds, if there was like an outage, to prevent spamming
-                return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($shardID, $gateway, $querystring) {
-                    $time = (30 - (\time() - $this->lastIdentify));
+            if(($this->lastIdentify ?? 0) > (time() - 30)) { // Make sure we reconnect after at least 30 seconds, if there was like an outage, to prevent spamming
+                return (new Promise(function (callable $resolve, callable $reject) use ($shardID, $gateway, $querystring) {
+                    $time = (30 - (time() - $this->lastIdentify));
                     $this->client->emit('debug', 'Reconnect for shard '.$shardID.' will be attempted in '.$time.' seconds');
                     
                     $this->client->addTimer($time, function () use ($shardID, $gateway, $querystring, $resolve, $reject) {
@@ -308,7 +330,7 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
      */
     protected function createConnection(int $shardID) {
         if(empty($this->connections[$shardID])) {
-            $this->connections[$shardID] = new \CharlotteDunois\Yasmin\WebSocket\WSConnection($this, $shardID, $this->compression);
+            $this->connections[$shardID] = new WSConnection($this, $shardID, $this->compression);
             
             $this->connections[$shardID]->on('close', function (int $code, string $reason) use ($shardID) {
                 $this->client->emit('debug', 'Shard '.$shardID.' disconnected with code '.$code.' and reason "'.$reason.'"');
@@ -325,22 +347,22 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
      * Handles the connect encoding for the query string.
      * @param array  $querystring
      * @return void
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     protected function handleConnectEncoding(array &$querystring) {
         if($this->encoding === null) {
             $encoding = $querystring['encoding'] ?? self::WS['encoding'];
             
-            $name = \str_replace('-', '', \ucwords($encoding, '-'));
-            if(\strpos($name, '\\') === false) {
+            $name = str_replace('-', '', ucwords($encoding, '-'));
+            if(strpos($name, '\\') === false) {
                 $name = '\\CharlotteDunois\\Yasmin\\WebSocket\\Encoding\\'.$name;
             }
             
             $name::supported();
             
-            $interfaces = \class_implements($name);
-            if(!\in_array('CharlotteDunois\\Yasmin\\Interfaces\\WSEncodingInterface', $interfaces)) {
-                throw new \RuntimeException('Specified WS encoding class does not implement necessary interface');
+            $interfaces = class_implements($name);
+            if(!in_array('CharlotteDunois\\Yasmin\\Interfaces\\WSEncodingInterface', $interfaces)) {
+                throw new RuntimeException('Specified WS encoding class does not implement necessary interface');
             }
             
             $this->encoding = new $name();
@@ -353,7 +375,7 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
      * @param string  $gateway
      * @param array   $querystring
      * @return string
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     protected function handleConnectGateway(string $gateway, array &$querystring) {
         if(!empty($querystring)) {
@@ -363,7 +385,7 @@ class WSManager implements \CharlotteDunois\Events\EventEmitterInterface {
             }
             
             $this->gatewayQS = $querystring;
-            $gateway = \rtrim($gateway, '/').'/?'.\http_build_query($querystring);
+            $gateway = rtrim($gateway, '/').'/?'. http_build_query($querystring);
         }
         
         return $gateway;

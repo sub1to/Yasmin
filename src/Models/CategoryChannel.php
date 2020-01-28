@@ -9,24 +9,36 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\CategoryChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\StorageInterface;
+use CharlotteDunois\Yasmin\Traits\GuildChannelTrait;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use DateTime;
+use Exception;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents a guild's category channel.
  *
  * @property string                                               $id                     The ID of the channel.
  * @property string                                               $name                   The channel name.
- * @property \CharlotteDunois\Yasmin\Models\Guild                 $guild                  The guild this category channel belongs to.
+ * @property Guild $guild                  The guild this category channel belongs to.
  * @property int                                                  $createdTimestamp       The timestamp of when this channel was created.
  * @property int                                                  $position               The channel position.
- * @property \CharlotteDunois\Collect\Collection                  $permissionOverwrites   A collection of PermissionOverwrite instances.
+ * @property Collection                  $permissionOverwrites   A collection of PermissionOverwrite instances.
  *
- * @property \DateTime                                            $createdAt              The DateTime instance of createdTimestamp.
+ * @property DateTime                                            $createdAt              The DateTime instance of createdTimestamp.
  */
-class CategoryChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfaces\CategoryChannelInterface {
-    use \CharlotteDunois\Yasmin\Traits\GuildChannelTrait;
+class CategoryChannel extends ClientBase implements CategoryChannelInterface {
+    use GuildChannelTrait;
     
     /**
      * The guild this category channel belongs to.
-     * @var \CharlotteDunois\Yasmin\Models\Guild
+     * @var Guild
      */
     protected $guild;
     
@@ -50,7 +62,7 @@ class CategoryChannel extends ClientBase implements \CharlotteDunois\Yasmin\Inte
     
     /**
      * A collection of PermissionOverwrite instances.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $permissionOverwrites;
     
@@ -59,35 +71,39 @@ class CategoryChannel extends ClientBase implements \CharlotteDunois\Yasmin\Inte
      * @var int
      */
     protected $createdTimestamp;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Guild $guild, array $channel) {
+
+	/**
+	 * @param Client $client
+	 * @param Guild $guild
+	 * @param array $channel
+	 * @internal
+	 */
+    function __construct(Client $client, Guild $guild, array $channel) {
         parent::__construct($client);
         $this->guild = $guild;
         
         $this->id = (string) $channel['id'];
-        $this->createdTimestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id)->timestamp;
-        $this->permissionOverwrites = new \CharlotteDunois\Collect\Collection();
+        $this->createdTimestamp = (int) Snowflake::deconstruct($this->id)->timestamp;
+        $this->permissionOverwrites = new Collection();
         
         $this->_patch($channel);
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @throws \RuntimeException
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws RuntimeException
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
         switch($name) {
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
         }
         
@@ -96,19 +112,20 @@ class CategoryChannel extends ClientBase implements \CharlotteDunois\Yasmin\Inte
     
     /**
      * Returns all channels which are childrens of this category.
-     * @return \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @return StorageInterface
      */
     function getChildren() {
         return $this->guild->channels->filter(function ($channel) {
             return ($channel->parentID === $this->id);
         });
     }
-    
-    /**
-     * @return void
-     * @internal
-     */
-    function _patch(array $channel) {
+
+	/**
+	 * @param array $channel
+	 * @return void
+	 * @internal
+	 */
+	function _patch(array $channel) {
         $this->name = (string) ($channel['name'] ?? $this->name ?? '');
         $this->position = (int) ($channel['position'] ?? $this->position ?? 0);
         
@@ -116,7 +133,7 @@ class CategoryChannel extends ClientBase implements \CharlotteDunois\Yasmin\Inte
             $this->permissionOverwrites->clear();
             
             foreach($channel['permission_overwrites'] as $permission) {
-                $this->permissionOverwrites->set($permission['id'], new \CharlotteDunois\Yasmin\Models\PermissionOverwrite($this->client, $this, $permission));
+                $this->permissionOverwrites->set($permission['id'], new PermissionOverwrite($this->client, $this, $permission));
             }
         }
     }

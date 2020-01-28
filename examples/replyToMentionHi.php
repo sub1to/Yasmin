@@ -12,10 +12,13 @@
  * if the message mentions the bot and says hi.
  */
 
+use CharlotteDunois\Yasmin\Client;
+use React\EventLoop\Factory;
+
 require_once(__DIR__.'/vendor/autoload.php');
 
-$loop = \React\EventLoop\Factory::create();
-$client = new \CharlotteDunois\Yasmin\Client(array(
+$loop = Factory::create();
+$client = new Client(array(
     'ws.disabledEvents' => array(
         /* We disable the TYPING_START event to save CPU cycles, we don't need it here in this example. */
         'TYPING_START'
@@ -42,7 +45,7 @@ $client->on('message', function ($message) use ($client, &$mentions) {
         // Get the start of message content to compare with our mention formats
         // We use the longest mention format
         // We also trim it from any trailing whitespaces
-        $start = \trim(\substr($message->content, $mentions[3]));
+        $start = trim(substr($message->content, $mentions[3]));
         
         // Now we compare it, we only want the bot to respond
         // when the mention is at the start of the content
@@ -54,7 +57,7 @@ $client->on('message', function ($message) use ($client, &$mentions) {
                 echo $error.PHP_EOL;
             });
         }
-    } catch(\Exception $error) {
+    } catch(Exception $error) {
         // Handle exception
     }
 });

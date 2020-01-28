@@ -9,13 +9,17 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Models\GuildMember;
+use CharlotteDunois\Yasmin\Models\User;
+use InvalidArgumentException;
+
 /**
  * Something all user storages implement. The storage also is used as factory.
  */
 interface UserStorageInterface extends StorageInterface {
     /**
      * Returns the current element. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\User
+     * @return User
      */
     function current();
     
@@ -27,13 +31,13 @@ interface UserStorageInterface extends StorageInterface {
     
     /**
      * Advances the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\User|false
+     * @return User|false
      */
     function next();
     
     /**
      * Resets the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\User|false
+     * @return User|false
      */
     function rewind();
     
@@ -45,22 +49,22 @@ interface UserStorageInterface extends StorageInterface {
     
     /**
      * Returns all items.
-     * @return \CharlotteDunois\Yasmin\Models\User[]
+     * @return User[]
      */
     function all();
     
     /**
      * Resolves given data to an user.
-     * @param \CharlotteDunois\Yasmin\Models\User|\CharlotteDunois\Yasmin\Models\GuildMember|string|int  $user  string/int = user ID
-     * @return \CharlotteDunois\Yasmin\Models\User
-     * @throws \InvalidArgumentException
+     * @param User|GuildMember|string|int  $user  string/int = user ID
+     * @return User
+     * @throws InvalidArgumentException
      */
     function resolve($user);
     
     /**
      * Patches an user (retrieves the user if the user exists), returns null if only the ID is in the array, or creates an user.
      * @param array  $user
-     * @return \CharlotteDunois\Yasmin\Models\User|null
+     * @return User|null
      */
     function patch(array $user);
     
@@ -68,24 +72,24 @@ interface UserStorageInterface extends StorageInterface {
      * Determines if a given key exists in the collection.
      * @param string  $key
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
     */
     function has($key);
     
     /**
      * Returns the item at a given key. If the key does not exist, null is returned.
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\User|null
-     * @throws \InvalidArgumentException
+     * @return User|null
+     * @throws InvalidArgumentException
     */
     function get($key);
     
     /**
      * Sets a key-value pair.
      * @param string                               $key
-     * @param \CharlotteDunois\Yasmin\Models\User  $value
+     * @param User  $value
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function set($key, $value);
     
@@ -93,7 +97,7 @@ interface UserStorageInterface extends StorageInterface {
      * Factory to create (or retrieve existing) users.
      * @param array  $data
      * @param bool   $userFetched
-     * @return \CharlotteDunois\Yasmin\Models\User
+     * @return User
      * @internal
      */
     function factory(array $data, bool $userFetched = false);

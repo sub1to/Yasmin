@@ -12,10 +12,13 @@
  * when the bot is ready.
  */
 
+use CharlotteDunois\Yasmin\Client;
+use React\EventLoop\Factory;
+
 require_once(__DIR__.'/vendor/autoload.php');
 
-$loop = \React\EventLoop\Factory::create();
-$client = new \CharlotteDunois\Yasmin\Client(array(), $loop);
+$loop = Factory::create();
+$client = new Client(array(), $loop);
 
 $client->once('ready', function () use ($client) {
     try {
@@ -39,7 +42,7 @@ $client->once('ready', function () use ($client) {
                         echo $error.PHP_EOL;
                     });
         }
-    } catch(\Exception $error) {
+    } catch(Exception $error) {
         // Handle exception
     }
 });

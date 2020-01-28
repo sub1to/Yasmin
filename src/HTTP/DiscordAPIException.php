@@ -9,10 +9,19 @@
 
 namespace CharlotteDunois\Yasmin\HTTP;
 
+use CharlotteDunois\Yasmin\DiscordException;
+use function array_map;
+use function array_merge;
+use function implode;
+use function is_array;
+use function is_numeric;
+use function trim;
+use const PHP_EOL;
+
 /**
  * Represents an error from the Discord HTTP API.
  */
-class DiscordAPIException extends \CharlotteDunois\Yasmin\DiscordException {
+class DiscordAPIException extends DiscordException {
     /**
      * The path of the request relative to the HTTP endpoint.
      * @var string
@@ -26,9 +35,9 @@ class DiscordAPIException extends \CharlotteDunois\Yasmin\DiscordException {
      */
     function __construct($path, array $error) {
         $this->path = $path;
-        $flattened = \implode('\n', self::flattenErrors(($error['errors'] ?? $error)));
+        $flattened = implode('\n', self::flattenErrors(($error['errors'] ?? $error)));
         
-        parent::__construct((!empty($error['message']) && !empty($flattened) ? $error['message'].\PHP_EOL.$flattened : ($error['message'] ?? $flattened)), (int) ($error['code'] ?? 0));
+        parent::__construct((!empty($error['message']) && !empty($flattened) ? $error['message']. PHP_EOL.$flattened : ($error['message'] ?? $flattened)), (int) ($error['code'] ?? 0));
     }
     
     /**
@@ -48,7 +57,7 @@ class DiscordAPIException extends \CharlotteDunois\Yasmin\DiscordException {
             
             $newKey = $k;
             if($key) {
-                if(\is_numeric($k)) {
+                if(is_numeric($k)) {
                     $newKey = $key.'.'.$k;
                 } else {
                     $newKey = $key.'['.$k.']';
@@ -56,13 +65,13 @@ class DiscordAPIException extends \CharlotteDunois\Yasmin\DiscordException {
             }
             
             if(isset($val['_errors'])) {
-                $messages[] = $newKey.': '.\implode(' ', \array_map(function ($element) {
+                $messages[] = $newKey.': '. implode(' ', array_map(function ($element) {
                     return $element['message'];
                 }, $val['_errors']));
             } else if(isset($val['code']) || isset($val['message'])) {
-                $messages[] = \trim(($val['code'] ?? '').': '.($val['message'] ?? ''));
-            } else if(\is_array($val)) {
-                $messages = \array_merge($messages, self::flattenErrors($val, $newKey));
+                $messages[] = trim(($val['code'] ?? '').': '.($val['message'] ?? ''));
+            } else if(is_array($val)) {
+                $messages = array_merge($messages, self::flattenErrors($val, $newKey));
             } else {
                 $messages[] = $val;
             }

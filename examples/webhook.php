@@ -11,10 +11,13 @@
  * This example will demonstrate how to create a webhook client and execute the webhook.
  */
 
+use CharlotteDunois\Yasmin\WebhookClient;
+use React\EventLoop\Factory;
+
 require_once(__DIR__.'/vendor/autoload.php');
 
-$loop = \React\EventLoop\Factory::create();
-$webhook = new \CharlotteDunois\Yasmin\WebhookClient('WEBHOOK_ID', 'WEBHOOK_TOKEN', array(), $loop);
+$loop = Factory::create();
+$webhook = new WebhookClient('WEBHOOK_ID', 'WEBHOOK_TOKEN', array(), $loop);
 
 // Send the message
 

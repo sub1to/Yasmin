@@ -9,22 +9,31 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface;
+use InvalidArgumentException;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use RuntimeException;
+use function json_encode;
+use function property_exists;
+
 /**
  * Represents a permission overwrite.
  *
- * @property \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface                              $channel   The channel this Permission Overwrite belongs to.
+ * @property GuildChannelInterface                              $channel   The channel this Permission Overwrite belongs to.
  * @property string                                                                                $id        The ID of the Permission Overwrite.
  * @property string                                                                                $type      The type of the overwrite (member or role).
- * @property \CharlotteDunois\Yasmin\Models\Permissions                                            $allow     The allowed Permissions instance.
- * @property \CharlotteDunois\Yasmin\Models\Permissions                                            $deny      The denied Permissions instance.
+ * @property Permissions $allow     The allowed Permissions instance.
+ * @property Permissions $deny      The denied Permissions instance.
  *
- * @property \CharlotteDunois\Yasmin\Models\Guild                                                  $guild     The guild this Permission Overwrite belongs to.
- * @property \CharlotteDunois\Yasmin\Models\Role|\CharlotteDunois\Yasmin\Models\GuildMember|null   $target    The role or guild member, or null if not a cached member.
+ * @property Guild $guild     The guild this Permission Overwrite belongs to.
+ * @property Role|GuildMember|null   $target    The role or guild member, or null if not a cached member.
  */
 class PermissionOverwrite extends ClientBase {
     /**
      * The channel this Permission Overwrite belongs to.
-     * @var \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface
+     * @var GuildChannelInterface
      */
     protected $channel;
     
@@ -42,37 +51,40 @@ class PermissionOverwrite extends ClientBase {
     
     /**
      * The allowed Permissions instance.
-     * @var \CharlotteDunois\Yasmin\Models\Permissions
+     * @var Permissions
      */
     protected $allow;
     
     /**
      * The denied Permissions instance.
-     * @var \CharlotteDunois\Yasmin\Models\Permissions
+     * @var Permissions
      */
     protected $deny;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface $channel, array $permission) {
+
+	/**
+	 * @param Client $client
+	 * @param GuildChannelInterface $channel
+	 * @param array $permission
+	 * @internal
+	 */
+    function __construct(Client $client, GuildChannelInterface $channel, array $permission) {
         parent::__construct($client);
         $this->channel = $channel;
         
         $this->id = (string) $permission['id'];
         $this->type = (string) $permission['type'];
-        $this->allow = new \CharlotteDunois\Yasmin\Models\Permissions(($permission['allow'] ?? 0));
-        $this->deny = new \CharlotteDunois\Yasmin\Models\Permissions(($permission['deny'] ?? 0));
+        $this->allow = new Permissions(($permission['allow'] ?? 0));
+        $this->deny = new Permissions(($permission['deny'] ?? 0));
     }
     
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -90,11 +102,11 @@ class PermissionOverwrite extends ClientBase {
     
     /**
     * Edits the permission overwrite. Resolves with $this.
-    * @param \CharlotteDunois\Yasmin\Models\Permissions|int|null                                    $allow         Which permissions should be allowed?
-    * @param \CharlotteDunois\Yasmin\Models\Permissions|int|null                                    $deny          Which permissions should be denied?
+    * @param Permissions|int|null                                    $allow         Which permissions should be allowed?
+    * @param Permissions|int|null                                    $deny          Which permissions should be denied?
     * @param string                                                                                 $reason        The reason for this.
-    * @return \React\Promise\ExtendedPromiseInterface
-    * @throws \InvalidArgumentException
+    * @return ExtendedPromiseInterface
+    * @throws InvalidArgumentException
      */
     function edit($allow, $deny = null, string $reason = '') {
         $options = array(
@@ -104,29 +116,29 @@ class PermissionOverwrite extends ClientBase {
         $allow = ($allow !== null ? $allow : $this->allow);
         $deny = ($deny !== null ? $deny : $this->deny);
         
-        if($allow instanceof \CharlotteDunois\Yasmin\Models\Permissions) {
+        if($allow instanceof Permissions) {
             $allow = $allow->bitfield;
         }
         
-        if($deny instanceof \CharlotteDunois\Yasmin\Models\Permissions) {
+        if($deny instanceof Permissions) {
             $deny = $deny->bitfield;
         }
         
         if($allow === $this->allow->bitfield && $deny === $this->deny->bitfield) {
-            throw new \InvalidArgumentException('One of allow or deny has to be changed');
+            throw new InvalidArgumentException('One of allow or deny has to be changed');
         }
         
-        if(\json_encode($allow) === \json_encode($deny)) {
-            throw new \InvalidArgumentException('Allow and deny must have different permissions');
+        if(json_encode($allow) === json_encode($deny)) {
+            throw new InvalidArgumentException('Allow and deny must have different permissions');
         }
         
         $options['allow'] = $allow;
         $options['deny'] = $deny;
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($options, $reason) {
             $this->client->apimanager()->endpoints->channel->editChannelPermissions($this->channel->getId(), $this->id, $options, $reason)->done(function () use ($options, $resolve) {
-                $this->allow = new \CharlotteDunois\Yasmin\Models\Permissions(($options['allow'] ?? 0));
-                $this->deny = new \CharlotteDunois\Yasmin\Models\Permissions(($options['deny'] ?? 0));
+                $this->allow = new Permissions(($options['allow'] ?? 0));
+                $this->deny = new Permissions(($options['deny'] ?? 0));
                 $resolve($this);
             }, $reject);
         }));
@@ -135,10 +147,10 @@ class PermissionOverwrite extends ClientBase {
     /**
      * Deletes the permission overwrite.
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function delete(string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($reason) {
             $this->client->apimanager()->endpoints->channel->deleteChannelPermission($this->channel->getId(), $this->id, $reason)->then(function () use ($resolve) {
                 $resolve();
             }, $reject);

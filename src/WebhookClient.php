@@ -9,6 +9,11 @@
 
 namespace CharlotteDunois\Yasmin;
 
+use CharlotteDunois\Yasmin\Models\User;
+use CharlotteDunois\Yasmin\Models\Webhook;
+use Exception;
+use React\EventLoop\LoopInterface;
+
 /**
  * The webhook client.
  *
@@ -17,21 +22,22 @@ namespace CharlotteDunois\Yasmin;
  * @property string|null                               $avatar     The webhook default avatar, or null.
  * @property string|null                               $channelID  The channel the webhook belongs to.
  * @property string|null                               $guildID    The guild the webhook belongs to, or null.
- * @property \CharlotteDunois\Yasmin\Models\User|null  $owner      The owner of the webhook, or null.
+ * @property User|null  $owner      The owner of the webhook, or null.
  * @property string                                    $token      The webhook token.
  */
-class WebhookClient extends \CharlotteDunois\Yasmin\Models\Webhook {
-    /**
-     * Constructor.
-     * @param string                               $id       The webhook ID.
-     * @param string                               $token    The webhook token.
-     * @param array                                $options  Any Client Options.
-     * @param \React\EventLoop\LoopInterface|null  $loop     The ReactPHP Event Loop.
-     */
-    function __construct(string $id, string $token, array $options = array(), ?\React\EventLoop\LoopInterface $loop = null) {
+class WebhookClient extends Webhook {
+	/**
+	 * Constructor.
+	 * @param string $id The webhook ID.
+	 * @param string $token The webhook token.
+	 * @param array $options Any Client Options.
+	 * @param LoopInterface|null $loop The ReactPHP Event Loop.
+	 * @throws Exception
+	 */
+    function __construct(string $id, string $token, array $options = array(), ?LoopInterface $loop = null) {
         $options['internal.ws.disable'] = true;
         
-        $client = new \CharlotteDunois\Yasmin\Client($options, $loop);
+        $client = new Client($options, $loop);
         parent::__construct($client, array(
             'id' => $id,
             'token' => $token

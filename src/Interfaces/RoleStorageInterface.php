@@ -9,13 +9,16 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Models\Role;
+use InvalidArgumentException;
+
 /**
  * Something all role storages implement. The storage also is used as factory.
  */
 interface RoleStorageInterface extends StorageInterface {
     /**
      * Returns the current element. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Role
+     * @return Role
      */
     function current();
     
@@ -27,13 +30,13 @@ interface RoleStorageInterface extends StorageInterface {
     
     /**
      * Advances the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Role|false
+     * @return Role|false
      */
     function next();
     
     /**
      * Resets the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Role|false
+     * @return Role|false
      */
     function rewind();
     
@@ -45,39 +48,39 @@ interface RoleStorageInterface extends StorageInterface {
     
     /**
      * Returns all items.
-     * @return \CharlotteDunois\Yasmin\Models\Role[]
+     * @return Role[]
      */
     function all();
     
     /**
      * Resolves given data to a Role.
-     * @param \CharlotteDunois\Yasmin\Models\Role|string|int  $role  string/int = role ID
-     * @return \CharlotteDunois\Yasmin\Models\Role
-     * @throws \InvalidArgumentException
+     * @param Role|string|int  $role  string/int = role ID
+     * @return Role
+     * @throws InvalidArgumentException
      */
     function resolve($role);
     
     /**
      * Returns the item at a given key. If the key does not exist, null is returned.
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\Role|null
-     * @throws \InvalidArgumentException
+     * @return Role|null
+     * @throws InvalidArgumentException
     */
     function get($key);
     
     /**
      * Sets a key-value pair.
      * @param string                               $key
-     * @param \CharlotteDunois\Yasmin\Models\Role  $value
+     * @param Role  $value
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function set($key, $value);
     
     /**
      * Factory to create (or retrieve existing) roles.
      * @param array  $data
-     * @return \CharlotteDunois\Yasmin\Models\Role
+     * @return Role
      * @internal
      */
     function factory(array $data);

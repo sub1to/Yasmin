@@ -9,11 +9,29 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\GuildTextChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\MessageStorageInterface;
+use CharlotteDunois\Yasmin\Interfaces\StorageInterface;
+use CharlotteDunois\Yasmin\Traits\GuildChannelTrait;
+use CharlotteDunois\Yasmin\Traits\TextChannelTrait;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\FileHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use DateTime;
+use Exception;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use RuntimeException;
+use function property_exists;
+use function React\Promise\resolve;
+
 /**
  * Represents a guild's text channel.
  *
  * @property string                                                      $id                     The channel ID.
- * @property \CharlotteDunois\Yasmin\Models\Guild                        $guild                  The associated guild.
+ * @property Guild                                                       $guild                  The associated guild.
  * @property int                                                         $createdTimestamp       The timestamp of when this channel was created.
  * @property string                                                      $name                   The channel name.
  * @property string                                                      $topic                  The channel topic.
@@ -21,25 +39,25 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property string|null                                                 $parentID               The ID of the parent channel, or null.
  * @property int                                                         $position               The channel position.
  * @property int                                                         $slowmode               Ratelimit to send one message for each non-bot user, without `MANAGE_CHANNEL` and `MANAGE_MESSAGES` permissions, in seconds (0-120).
- * @property \CharlotteDunois\Collect\Collection                         $permissionOverwrites   A collection of PermissionOverwrite instances, mapped by their ID.
+ * @property Collection                         						 $permissionOverwrites   A collection of PermissionOverwrite instances, mapped by their ID.
  * @property string|null                                                 $lastMessageID          The last message ID, or null.
- * @property \CharlotteDunois\Yasmin\Interfaces\MessageStorageInterface  $messages               The storage with all cached messages.
+ * @property MessageStorageInterface                                     $messages               The storage with all cached messages.
  *
- * @property \DateTime                                                   $createdAt              The DateTime instance of createdTimestamp.
- * @property \CharlotteDunois\Yasmin\Models\CategoryChannel|null         $parent                 The channel's parent, or null.
+ * @property DateTime                                                   $createdAt              The DateTime instance of createdTimestamp.
+ * @property CategoryChannel|null                                       $parent                 The channel's parent, or null.
  */
-class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfaces\GuildTextChannelInterface {
-    use \CharlotteDunois\Yasmin\Traits\GuildChannelTrait, \CharlotteDunois\Yasmin\Traits\TextChannelTrait;
+class TextChannel extends ClientBase implements GuildTextChannelInterface {
+    use GuildChannelTrait, TextChannelTrait;
     
     /**
      * The associated guild.
-     * @var \CharlotteDunois\Yasmin\Models\Guild
+     * @var Guild
      */
     protected $guild;
     
     /**
      * The storage with all cached messages.
-     * @var \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @var StorageInterface
      */
     protected $messages;
     
@@ -87,7 +105,7 @@ class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfac
     
     /**
      * A collection of PermissionOverwrite instances, mapped by their ID.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $permissionOverwrites;
     
@@ -96,41 +114,45 @@ class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfac
      * @var int
      */
     protected $createdTimestamp;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Guild $guild, array $channel) {
+
+	/**
+	 * @param Client $client
+	 * @param Guild $guild
+	 * @param array $channel
+	 * @internal
+	 */
+    function __construct(Client $client, Guild $guild, array $channel) {
         parent::__construct($client);
         $this->guild = $guild;
         
         $storage = $this->client->getOption('internal.storages.messages');
         $this->messages = new $storage($this->client, $this);
-        $this->typings = new \CharlotteDunois\Collect\Collection();
+        $this->typings = new Collection();
         
         $this->id = (string) $channel['id'];
-        $this->lastMessageID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($channel['last_message_id'] ?? null), 'string');
+        $this->lastMessageID = DataHelpers::typecastVariable(($channel['last_message_id'] ?? null), 'string');
         
-        $this->createdTimestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id)->timestamp;
-        $this->permissionOverwrites = new \CharlotteDunois\Collect\Collection();
+        $this->createdTimestamp = (int) Snowflake::deconstruct($this->id)->timestamp;
+        $this->permissionOverwrites = new Collection();
         
         $this->_patch($channel);
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @throws \RuntimeException
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws RuntimeException
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
         switch($name) {
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
             case 'parent':
                 return $this->guild->channels->get($this->parentID);
@@ -145,22 +167,22 @@ class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfac
      * @param string       $name
      * @param string|null  $avatar  An URL or file path, or data.
      * @param string       $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Webhook
      */
     function createWebhook(string $name, ?string $avatar = null, string $reason = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($name, $avatar, $reason) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($name, $avatar, $reason) {
             if(!empty($avatar)) {
-                $file = \CharlotteDunois\Yasmin\Utils\FileHelpers::resolveFileResolvable($avatar)->then(function ($avatar) {
-                    return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeBase64URI($avatar);
+                $file = FileHelpers::resolveFileResolvable($avatar)->then(function ($avatar) {
+                    return DataHelpers::makeBase64URI($avatar);
                 });
             } else {
-                $file = \React\Promise\resolve(null);
+                $file = resolve(null);
             }
             
             $file->done(function ($avatar = null) use ($name, $reason, $resolve, $reject) {
                 $this->client->apimanager()->endpoints->webhook->createWebhook($this->id, $name, $avatar, $reason)->done(function ($data) use ($resolve) {
-                    $hook = new \CharlotteDunois\Yasmin\Models\Webhook($this->client, $data);
+                    $hook = new Webhook($this->client, $data);
                     $resolve($hook);
                 }, $reject);
             }, $reject);
@@ -169,16 +191,16 @@ class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfac
     
     /**
      * Fetches the channel's webhooks. Resolves with a Collection of Webhook instances, mapped by their ID.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Webhook
      */
     function fetchWebhooks() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $this->client->apimanager()->endpoints->webhook->getChannelWebhooks($this->id)->done(function ($data) use ($resolve) {
-                $collect = new \CharlotteDunois\Collect\Collection();
+                $collect = new Collection();
                 
                 foreach($data as $web) {
-                    $hook = new \CharlotteDunois\Yasmin\Models\Webhook($this->client, $web);
+                    $hook = new Webhook($this->client, $web);
                     $collect->set($hook->id, $hook);
                 }
                 
@@ -191,7 +213,7 @@ class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfac
      * Sets the slowmode in seconds for this channel.
      * @param int     $slowmode  0-21600
      * @param string  $reason
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function setSlowmode(int $slowmode, string $reason = '') {
         return $this->edit(array('slowmode' => $slowmode), $reason);
@@ -204,16 +226,17 @@ class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfac
     function __toString() {
         return '<#'.$this->id.'>';
     }
-    
-    /**
-     * @return void
-     * @internal
-     */
-    function _patch(array $channel) {
+
+	/**
+	 * @param array $channel
+	 * @return void
+	 * @internal
+	 */
+	function _patch(array $channel) {
         $this->name = (string) ($channel['name'] ?? $this->name ?? '');
         $this->topic = (string) ($channel['topic'] ?? $this->topic ?? '');
         $this->nsfw = (bool) ($channel['nsfw'] ?? $this->nsfw ?? false);
-        $this->parentID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($channel['parent_id'] ?? $this->parentID ?? null), 'string');
+        $this->parentID = DataHelpers::typecastVariable(($channel['parent_id'] ?? $this->parentID ?? null), 'string');
         $this->position = (int) ($channel['position'] ?? $this->position ?? 0);
         $this->slowmode = (int) ($channel['rate_limit_per_user'] ?? $this->slowmode ?? 0);
         
@@ -221,7 +244,7 @@ class TextChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfac
             $this->permissionOverwrites->clear();
             
             foreach($channel['permission_overwrites'] as $permission) {
-                $overwrite = new \CharlotteDunois\Yasmin\Models\PermissionOverwrite($this->client, $this, $permission);
+                $overwrite = new PermissionOverwrite($this->client, $this, $permission);
                 $this->permissionOverwrites->set($overwrite->id, $overwrite);
             }
         }

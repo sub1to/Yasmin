@@ -9,14 +9,22 @@
 
 namespace CharlotteDunois\Yasmin\HTTP;
 
+use CharlotteDunois\Yasmin\Interfaces\RatelimitBucketInterface;
+use React\Promise\ExtendedPromiseInterface;
+use function array_shift;
+use function array_unshift;
+use function count;
+use function microtime;
+use const INF;
+
 /**
  * Manages a route's ratelimit in memory.
  * @internal
  */
-class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBucketInterface {
+class RatelimitBucket implements RatelimitBucketInterface {
     /**
      * The API manager.
-     * @var \CharlotteDunois\Yasmin\HTTP\APIManager
+     * @var APIManager
      */
     protected $api;
     
@@ -36,7 +44,7 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
      * How many requests can be made.
      * @var int
      */
-    protected $remaining = \INF;
+    protected $remaining = INF;
     
     /**
      * When the ratelimit gets reset.
@@ -46,7 +54,7 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
     
     /**
      * The request queue.
-     * @var \CharlotteDunois\Yasmin\HTTP\APIRequest[]
+     * @var APIRequest[]
      */
     protected $queue = array();
     
@@ -58,10 +66,10 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
     
     /**
      * DO NOT initialize this class yourself.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIManager  $api
+     * @param APIManager $api
      * @param string                                   $endpoint
      */
-    function __construct(\CharlotteDunois\Yasmin\HTTP\APIManager $api, string $endpoint) {
+    function __construct(APIManager $api, string $endpoint) {
         $this->api = $api;
         $this->endpoint = $endpoint;
     }
@@ -95,7 +103,7 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
      * @param int|null    $limit
      * @param int|null    $remaining
      * @param float|null  $resetTime  Reset time in seconds with milliseconds.
-     * @return \React\Promise\ExtendedPromiseInterface|void
+     * @return ExtendedPromiseInterface|void
      */
     function handleRatelimit(?int $limit, ?int $remaining, ?float $resetTime) {
         if($limit === null && $remaining === null && $resetTime === null) {
@@ -107,8 +115,8 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
         $this->remaining = $remaining ?? $this->remaining;
         $this->resetTime = $resetTime ?? $this->resetTime;
         
-        if($this->remaining === 0 && $this->resetTime > \microtime(true)) {
-            $this->api->client->emit('debug', 'Endpoint "'.$this->endpoint.'" ratelimit encountered, continueing in '.($this->resetTime - \microtime(true)).' seconds');
+        if($this->remaining === 0 && $this->resetTime > microtime(true)) {
+            $this->api->client->emit('debug', 'Endpoint "'.$this->endpoint.'" ratelimit encountered, continueing in '.($this->resetTime - microtime(true)).' seconds');
         }
     }
     
@@ -125,26 +133,26 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
      * @return int
      */
     function size(): int {
-        return \count($this->queue);
+        return count($this->queue);
     }
     
     /**
      * Pushes a new request into the queue.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIRequest $request
+     * @param APIRequest $request
      * @return $this
      */
-    function push(\CharlotteDunois\Yasmin\HTTP\APIRequest $request) {
+    function push(APIRequest $request) {
         $this->queue[] = $request;
         return $this;
     }
     
     /**
      * Unshifts a new request into the queue. Modifies remaining ratelimit.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIRequest $request
+     * @param APIRequest $request
      * @return $this
      */
-    function unshift(\CharlotteDunois\Yasmin\HTTP\APIRequest $request) {
-        \array_unshift($this->queue, $request);
+    function unshift(APIRequest $request) {
+        array_unshift($this->queue, $request);
         $this->remaining++;
         return $this;
     }
@@ -160,12 +168,12 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
      * )
      * ```
      *
-     * @return \React\Promise\ExtendedPromiseInterface|array
+     * @return ExtendedPromiseInterface|array
      */
     function getMeta() {
-        if($this->resetTime && \microtime(true) > $this->resetTime) {
+        if($this->resetTime && microtime(true) > $this->resetTime) {
             $this->resetTime = null;
-            $this->remaining = ($this->limit ? $this->limit : \INF);
+            $this->remaining = ($this->limit ? $this->limit : INF);
             
             $limited = false;
         } else {
@@ -177,14 +185,14 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
     
     /**
      * Returns the first queue item or false. Modifies remaining ratelimit.
-     * @return \CharlotteDunois\Yasmin\HTTP\APIRequest|false
+     * @return APIRequest|false
      */
     function shift() {
-        if(\count($this->queue) === 0) {
+        if(count($this->queue) === 0) {
             return false;
         }
         
-        $item = \array_shift($this->queue);
+        $item = array_shift($this->queue);
         $this->remaining--;
         
         return $item;
@@ -196,7 +204,7 @@ class RatelimitBucket implements \CharlotteDunois\Yasmin\Interfaces\RatelimitBuc
      */
     function clear(): void {
         $this->remaining = 0;
-        while($item = \array_shift($this->queue)) {
+        while($item = array_shift($this->queue)) {
             unset($item);
         }
     }

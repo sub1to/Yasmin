@@ -9,19 +9,27 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+
 /**
  * WS Event interface.
  * @internal
  */
 interface WSEventInterface {
-    /**
-     * Constructor.
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager);
-    
-    /**
-     * Handles events.
-     * @return void
-     */
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void;
+	/**
+	 * Constructor.
+	 * @param Client $client
+	 * @param WSManager $wsmanager
+	 */
+    function __construct(Client $client, WSManager $wsmanager);
+
+	/**
+	 * Handles events.
+	 * @param WSConnection $ws
+	 * @param $data
+	 * @return void
+	 */
+    function handle(WSConnection $ws, $data): void;
 }

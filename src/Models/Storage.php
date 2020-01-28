@@ -9,15 +9,27 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\StorageInterface;
+use Exception;
+use InvalidArgumentException;
+use RuntimeException;
+use function get_class;
+use function is_array;
+use function is_object;
+use function property_exists;
+use const SORT_REGULAR;
+
 /**
  * Base class for all storages.
  */
-class Storage extends \CharlotteDunois\Collect\Collection
-    implements \CharlotteDunois\Yasmin\Interfaces\StorageInterface {
+class Storage extends Collection
+    implements StorageInterface {
     
     /**
      * The client this storage belongs to.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
@@ -26,11 +38,13 @@ class Storage extends \CharlotteDunois\Collect\Collection
      * @var array
      */
     protected $baseStorageArgs;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $data = null) {
+
+	/**
+	 * @param Client $client
+	 * @param array|null $data
+	 * @internal
+	 */
+    function __construct(Client $client, array $data = null) {
         parent::__construct($data);
         $this->client = $client;
         
@@ -40,13 +54,13 @@ class Storage extends \CharlotteDunois\Collect\Collection
     /**
      * @param string  $name
      * @return bool
-     * @throws \Exception
+     * @throws Exception
      * @internal
      */
     function __isset($name) {
         try {
             return $this->$name !== null;
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             if($e->getTrace()[0]['function'] === '__get') {
                 return false;
             }
@@ -58,25 +72,25 @@ class Storage extends \CharlotteDunois\Collect\Collection
     /**
      * @param string  $name
      * @return string
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
-        throw new \RuntimeException('Unknown property '.\get_class($this).'::$'.$name);
+        throw new RuntimeException('Unknown property '. get_class($this).'::$'.$name);
     }
     
     /**
      * {@inheritdoc}
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function has($key) {
-        if(\is_array($key) || \is_object($key)) {
-            throw new \InvalidArgumentException('Key can not be an array or object');
+        if(is_array($key) || is_object($key)) {
+            throw new InvalidArgumentException('Key can not be an array or object');
         }
         
         $key = (string) $key;
@@ -86,11 +100,11 @@ class Storage extends \CharlotteDunois\Collect\Collection
     /**
      * {@inheritdoc}
      * @return mixed|null
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function get($key) {
-        if(\is_array($key) || \is_object($key)) {
-            throw new \InvalidArgumentException('Key can not be an array or object');
+        if(is_array($key) || is_object($key)) {
+            throw new InvalidArgumentException('Key can not be an array or object');
         }
         
         $key = (string) $key;
@@ -99,12 +113,12 @@ class Storage extends \CharlotteDunois\Collect\Collection
     
     /**
      * {@inheritdoc}
-     * @return $this
-     * @throws \InvalidArgumentException
+     * @return $this|Collection
+     * @throws InvalidArgumentException
      */
     function set($key, $value) {
-        if(\is_array($key) || \is_object($key)) {
-            throw new \InvalidArgumentException('Key can not be an array or object');
+        if(is_array($key) || is_object($key)) {
+            throw new InvalidArgumentException('Key can not be an array or object');
         }
         
         $key = (string) $key;
@@ -113,12 +127,12 @@ class Storage extends \CharlotteDunois\Collect\Collection
     
     /**
      * {@inheritdoc}
-     * @return $this
-     * @throws \InvalidArgumentException
+     * @return $this|Collection
+     * @throws InvalidArgumentException
      */
     function delete($key) {
-        if(\is_array($key) || \is_object($key)) {
-            throw new \InvalidArgumentException('Key can not be an array or object');
+        if(is_array($key) || is_object($key)) {
+            throw new InvalidArgumentException('Key can not be an array or object');
         }
         
         $key = (string) $key;
@@ -127,7 +141,7 @@ class Storage extends \CharlotteDunois\Collect\Collection
     
     /**
      * {@inheritdoc}
-     * @return \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @return StorageInterface
      */
     function copy() {
         $args = $this->baseStorageArgs;
@@ -139,7 +153,7 @@ class Storage extends \CharlotteDunois\Collect\Collection
     /**
      * {@inheritdoc}
      * @param callable  $closure
-     * @return \CharlotteDunois\Yasmin\Interfaces\StorageInterface
+     * @return StorageInterface
     */
     function filter(callable $closure) {
         $args = $this->baseStorageArgs;
@@ -152,9 +166,9 @@ class Storage extends \CharlotteDunois\Collect\Collection
      * {@inheritdoc}
      * @param bool  $descending
      * @param int   $options
-     * @return \CharlotteDunois\Collect\Collection
+     * @return Collection
      */
-    function sort(bool $descending = false, int $options = \SORT_REGULAR) {
+    function sort(bool $descending = false, int $options = SORT_REGULAR) {
         $args = $this->baseStorageArgs;
         $args[] = parent::sort($descending, $options)->all();
         
@@ -165,9 +179,9 @@ class Storage extends \CharlotteDunois\Collect\Collection
      * {@inheritdoc}
      * @param bool  $descending
      * @param int   $options
-     * @return \CharlotteDunois\Collect\Collection
+     * @return Collection
      */
-    function sortKey(bool $descending = false, int $options = \SORT_REGULAR) {
+    function sortKey(bool $descending = false, int $options = SORT_REGULAR) {
         $args = $this->baseStorageArgs;
         $args[] = parent::sortKey($descending, $options)->all();
         
@@ -177,7 +191,7 @@ class Storage extends \CharlotteDunois\Collect\Collection
     /**
      * {@inheritdoc}
      * @param callable  $closure  Callback specification: `function ($a, $b): int`
-     * @return \CharlotteDunois\Collect\Collection
+     * @return Collection
      */
     function sortCustom(callable $closure) {
         $args = $this->baseStorageArgs;
@@ -189,7 +203,7 @@ class Storage extends \CharlotteDunois\Collect\Collection
     /**
      * {@inheritDoc}
      * @param callable  $closure  Callback specification: `function ($a, $b): int`
-     * @return \CharlotteDunois\Collect\Collection
+     * @return Collection
      */
     function sortCustomKey(callable $closure) {
         $args = $this->baseStorageArgs;

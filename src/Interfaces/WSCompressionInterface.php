@@ -9,6 +9,9 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\WebSocket\DiscordGatewayException;
+use Exception;
+
 /**
  * Interface for WS compressions. This is used internally.
  */
@@ -16,7 +19,7 @@ interface WSCompressionInterface {
     /**
      * Checks if the system supports it.
      * @return void
-     * @throws \Exception
+     * @throws Exception
      */
     static function supported(): void;
     
@@ -35,7 +38,7 @@ interface WSCompressionInterface {
     /**
      * Initializes the context.
      * @return void
-     * @throws \Exception
+     * @throws Exception
      */
     function init(): void;
     
@@ -49,7 +52,7 @@ interface WSCompressionInterface {
      * Decompresses data.
      * @param string  $data
      * @return string
-     * @throws \CharlotteDunois\Yasmin\WebSocket\DiscordGatewayException
+     * @throws DiscordGatewayException
      */
     function decompress(string $data): string;
 }

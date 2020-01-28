@@ -9,15 +9,21 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Events;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\WSEventInterface;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use function in_array;
+
 /**
  * WS Event
  * @see https://discordapp.com/developers/docs/topics/gateway#user-update
  * @internal
  */
-class UserUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
+class UserUpdate implements WSEventInterface {
     /**
      * The client.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
@@ -27,14 +33,14 @@ class UserUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface 
      */
     protected $clones = false;
     
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager) {
+    function __construct(Client $client, WSManager $wsmanager) {
         $this->client = $client;
         
         $clones = $this->client->getOption('disableClones', array());
-        $this->clones = !($clones === true || \in_array('userUpdate', (array) $clones));
+        $this->clones = !($clones === true || in_array('userUpdate', (array) $clones));
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void {
+    function handle(WSConnection $ws, $data): void {
         $user = $this->client->users->get($data['id']);
         if($user) {
             $oldUser = null;

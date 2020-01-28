@@ -9,6 +9,10 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\WebSocket\DiscordGatewayException;
+use Ratchet\RFC6455\Messaging\Message;
+use RuntimeException;
+
 /**
  * Interface for WS encodings. This is used internally.
  */
@@ -22,7 +26,7 @@ interface WSEncodingInterface {
     /**
      * Checks if the system supports it.
      * @return void
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     static function supported(): void;
     
@@ -30,7 +34,7 @@ interface WSEncodingInterface {
      * Decodes data.
      * @param string  $data
      * @return mixed
-     * @throws \CharlotteDunois\Yasmin\WebSocket\DiscordGatewayException
+     * @throws DiscordGatewayException
      */
     function decode(string $data);
     
@@ -38,14 +42,14 @@ interface WSEncodingInterface {
      * Encodes data.
      * @param mixed  $data
      * @return string
-     * @throws \CharlotteDunois\Yasmin\WebSocket\DiscordGatewayException
+     * @throws DiscordGatewayException
      */
     function encode($data): string;
     
     /**
      * Prepares the data to be sent.
      * @param string  $data
-     * @return \Ratchet\RFC6455\Messaging\Message
+     * @return Message
      */
-    function prepareMessage(string $data): \Ratchet\RFC6455\Messaging\Message;
+    function prepareMessage(string $data): Message;
 }

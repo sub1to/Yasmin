@@ -9,6 +9,9 @@
 
 namespace CharlotteDunois\Yasmin\HTTP\Endpoints;
 
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use CharlotteDunois\Yasmin\HTTP\APIManager;
+
 /**
  * Handles the API endpoints "Invite".
  * @internal
@@ -25,20 +28,20 @@ class Invite {
     );
     
     /**
-     * @var \CharlotteDunois\Yasmin\HTTP\APIManager
+     * @var APIManager
      */
     protected $api;
     
     /**
      * Constructor.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIManager $api
+     * @param APIManager $api
      */
-    function __construct(\CharlotteDunois\Yasmin\HTTP\APIManager $api) {
+    function __construct(APIManager $api) {
         $this->api = $api;
     }
     
     function getInvite(string $code, bool $withCounts = false) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['get'], $code);
+        $url = APIEndpoints::format(self::ENDPOINTS['get'], $code);
         
         $opts = array();
         if($withCounts) {
@@ -49,12 +52,12 @@ class Invite {
     }
     
     function deleteInvite(string $code, string $reason = '') {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['delete'], $code);
+        $url = APIEndpoints::format(self::ENDPOINTS['delete'], $code);
         return $this->api->makeRequest('DELETE', $url, array('auditLogReason' => $reason));
     }
     
     function acceptInvite(string $code) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['accept'], $code);
+        $url = APIEndpoints::format(self::ENDPOINTS['accept'], $code);
         return $this->api->makeRequest('POST', $url, array());
     }
 }

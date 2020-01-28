@@ -9,6 +9,16 @@
 
 namespace CharlotteDunois\Yasmin\HTTP;
 
+use CharlotteDunois\Yasmin\HTTP\Endpoints\Channel;
+use CharlotteDunois\Yasmin\HTTP\Endpoints\Emoji;
+use CharlotteDunois\Yasmin\HTTP\Endpoints\Guild;
+use CharlotteDunois\Yasmin\HTTP\Endpoints\Invite;
+use CharlotteDunois\Yasmin\HTTP\Endpoints\User;
+use CharlotteDunois\Yasmin\HTTP\Endpoints\Voice;
+use CharlotteDunois\Yasmin\HTTP\Endpoints\Webhook;
+use React\Promise\ExtendedPromiseInterface;
+use function sprintf;
+
 /**
  * Handles the API endpoints.
  * @internal
@@ -54,75 +64,75 @@ class APIEndpoints {
     
     /**
      * The API manager.
-     * @var \CharlotteDunois\Yasmin\HTTP\APIManager
+     * @var APIManager
      */
     protected $api;
     
     /**
      * The channel endpoints.
-     * @var \CharlotteDunois\Yasmin\HTTP\Endpoints\Channel
+     * @var Channel
      */
     public $channel;
     
     /**
      * The emoji endpoints.
-     * @var \CharlotteDunois\Yasmin\HTTP\Endpoints\Emoji
+     * @var Emoji
      */
     public $emoji;
     
     /**
      * The guild endpoints.
-     * @var \CharlotteDunois\Yasmin\HTTP\Endpoints\Guild
+     * @var Guild
      */
     public $guild;
     
     /**
      * The invite endpoints.
-     * @var \CharlotteDunois\Yasmin\HTTP\Endpoints\Invite
+     * @var Invite
      */
     public $invite;
     
     /**
      * The user endpoints.
-     * @var \CharlotteDunois\Yasmin\HTTP\Endpoints\User
+     * @var User
      */
     public $user;
     
     /**
      * The voice endpoints.
-     * @var \CharlotteDunois\Yasmin\HTTP\Endpoints\Voice
+     * @var Voice
      */
     public $voice;
     
     /**
      * The webhook endpoints.
-     * @var \CharlotteDunois\Yasmin\HTTP\Endpoints\Webhook
+     * @var Webhook
      */
     public $webhook;
     
     
     /**
      * DO NOT initialize this class yourself.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIManager $api
+     * @param APIManager $api
      */
-    function __construct(\CharlotteDunois\Yasmin\HTTP\APIManager $api) {
+    function __construct(APIManager $api) {
         $this->api = $api;
         
-        $this->channel = new \CharlotteDunois\Yasmin\HTTP\Endpoints\Channel($api);
-        $this->emoji = new \CharlotteDunois\Yasmin\HTTP\Endpoints\Emoji($api);
-        $this->guild = new \CharlotteDunois\Yasmin\HTTP\Endpoints\Guild($api);
-        $this->invite = new \CharlotteDunois\Yasmin\HTTP\Endpoints\Invite($api);
-        $this->user = new \CharlotteDunois\Yasmin\HTTP\Endpoints\User($api);
-        $this->voice = new \CharlotteDunois\Yasmin\HTTP\Endpoints\Voice($api);
-        $this->webhook = new \CharlotteDunois\Yasmin\HTTP\Endpoints\Webhook($api);
+        $this->channel = new Channel($api);
+        $this->emoji = new Emoji($api);
+        $this->guild = new Guild($api);
+        $this->invite = new Invite($api);
+        $this->user = new User($api);
+        $this->voice = new Voice($api);
+        $this->webhook = new Webhook($api);
     }
     
     /**
      * Gets the current OAuth application.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function getCurrentApplication() {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::ENDPOINTS['currentOAuthApplication'];
+        $url = APIEndpoints::ENDPOINTS['currentOAuthApplication'];
         return $this->api->makeRequest('GET', $url, array());
     }
     
@@ -133,6 +143,6 @@ class APIEndpoints {
      * @return string
      */
     static function format(string $endpoint, ...$args) {
-        return \sprintf($endpoint, ...$args);
+        return sprintf($endpoint, ...$args);
     }
 }

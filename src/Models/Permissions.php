@@ -9,6 +9,14 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use InvalidArgumentException;
+use RuntimeException;
+use function array_search;
+use function is_array;
+use function is_int;
+use function is_string;
+use function property_exists;
+
 /**
  * Permissions. Something fabulous.
  *
@@ -79,17 +87,19 @@ class Permissions extends Base {
      * @param int  $permission
      */
     function __construct(int $permission = 0) {
+		parent::__construct();
+
         $this->bitfield = $permission;
     }
     
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -109,10 +119,10 @@ class Permissions extends Base {
      * @param array|int|string  $permissions
      * @param bool              $checkAdmin
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function has($permissions, bool $checkAdmin = true) {
-        if(!\is_array($permissions)) {
+        if(!is_array($permissions)) {
             $permissions = array($permissions);
         }
         
@@ -135,7 +145,7 @@ class Permissions extends Base {
      * @param array|int|string  $permissions
      * @param bool              $checkAdmin
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function missing($permissions, bool $checkAdmin = true) {
         return !$this->has($permissions, $checkAdmin);
@@ -145,7 +155,7 @@ class Permissions extends Base {
      * Adds permissions to these ones.
      * @param int|string  ...$permissions
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function add(...$permissions) {
         $total = 0;
@@ -162,7 +172,7 @@ class Permissions extends Base {
      * Removes permissions from these ones.
      * @param int|string  ...$permissions
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function remove(...$permissions) {
         $total = 0;
@@ -179,34 +189,34 @@ class Permissions extends Base {
      * Resolves a permission name to number.
      * @param int|string  $permission
      * @return int
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     static function resolve($permission) {
-        if(\is_int($permission)) {
+        if(is_int($permission)) {
             return $permission;
-        } elseif(\is_string($permission) && isset(self::PERMISSIONS[$permission])) {
+        } elseif(is_string($permission) && isset(self::PERMISSIONS[$permission])) {
             return self::PERMISSIONS[$permission];
         }
         
-        throw new \InvalidArgumentException('Unable to resolve unknown permission');
+        throw new InvalidArgumentException('Unable to resolve unknown permission');
     }
     
     /**
      * Resolves a permission number to the name. Also checks if a given name is a valid permission.
      * @param int|string  $permission
      * @return string
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     static function resolveToName($permission) {
-        if(\is_int($permission)) {
-            $index = \array_search($permission, self::PERMISSIONS, true);
+        if(is_int($permission)) {
+            $index = array_search($permission, self::PERMISSIONS, true);
             if($index) {
                 return $index;
             }
-        } elseif(\is_string($permission) && isset(self::PERMISSIONS[$permission])) {
+        } elseif(is_string($permission) && isset(self::PERMISSIONS[$permission])) {
             return $permission;
         }
         
-        throw new \InvalidArgumentException('Unable to resolve unknown permission');
+        throw new InvalidArgumentException('Unable to resolve unknown permission');
     }
 }

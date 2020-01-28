@@ -9,42 +9,51 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Events;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\TextChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\WSEventInterface;
+use CharlotteDunois\Yasmin\Models\Message;
+use CharlotteDunois\Yasmin\Models\User;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use function React\Promise\resolve;
+
 /**
  * WS Event
  * @see https://discordapp.com/developers/docs/topics/gateway#message-reaction-add
  * @internal
  */
-class MessageReactionAdd implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
+class MessageReactionAdd implements WSEventInterface {
     /**
      * The client.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager) {
+    function __construct(Client $client, WSManager $wsmanager) {
         $this->client = $client;
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void {
+    function handle(WSConnection $ws, $data): void {
         $channel = $this->client->channels->get($data['channel_id']);
-        if($channel instanceof \CharlotteDunois\Yasmin\Interfaces\TextChannelInterface) {
+        if($channel instanceof TextChannelInterface) {
             $message = $channel->getMessages()->get($data['message_id']);
             $reaction = null;
             
             if($message) {
                 $reaction = $message->_addReaction($data);
-                $message = \React\Promise\resolve($message);
+                $message = resolve($message);
             } else {
                 $message = $channel->fetchMessage($data['message_id']);
             }
             
-            $message->done(function (\CharlotteDunois\Yasmin\Models\Message $message) use ($data, $reaction) {
+            $message->done(function (Message $message) use ($data, $reaction) {
                 if($reaction === null) {
                     $id = (!empty($data['emoji']['id']) ? ((string) $data['emoji']['id']) : $data['emoji']['name']);
                     $reaction = $message->reactions->get($id);
                 }
                 
-                $this->client->fetchUser($data['user_id'])->done(function (\CharlotteDunois\Yasmin\Models\User $user) use ($reaction) {
+                $this->client->fetchUser($data['user_id'])->done(function (User $user) use ($reaction) {
                     $reaction->users->set($user->id, $user);
                     $this->client->queuedEmit('messageReactionAdd', $reaction, $user);
                 }, array($this->client, 'handlePromiseRejection'));

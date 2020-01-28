@@ -9,15 +9,24 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Events;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\WSEventInterface;
+use CharlotteDunois\Yasmin\Models\User;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use function count;
+use function in_array;
+use function React\Promise\resolve;
+
 /**
  * WS Event
  * @see https://discordapp.com/developers/docs/topics/gateway#presence-update
  * @internal
  */
-class PresenceUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
+class PresenceUpdate implements WSEventInterface {
     /**
      * The client.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
@@ -33,15 +42,15 @@ class PresenceUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterf
      */
     protected $ignoreUnknown = false;
     
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager) {
+    function __construct(Client $client, WSManager $wsmanager) {
         $this->client = $client;
         
         $clones = $this->client->getOption('disableClones', array());
-        $this->clones = !($clones === true || \in_array('presenceUpdate', (array) $clones));
+        $this->clones = !($clones === true || in_array('presenceUpdate', (array) $clones));
         $this->ignoreUnknown = (bool) $this->client->getOption('ws.presenceUpdate.ignoreUnknownUsers', false);
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void {
+    function handle(WSConnection $ws, $data): void {
         $user = $this->client->users->get($data['user']['id']);
         
         if(($data['status'] ?? null) === 'offline' && $user === null) {
@@ -55,7 +64,7 @@ class PresenceUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterf
             
             $user = $this->client->fetchUser($data['user']['id']);
         } else {
-            if(\count($data['user']) > 1 && $user->_shouldUpdate($data['user'])) {
+            if(count($data['user']) > 1 && $user->_shouldUpdate($data['user'])) {
                 $oldUser = null;
                 if($this->clones) {
                     $oldUser = clone $user;
@@ -67,10 +76,10 @@ class PresenceUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterf
                 return;
             }
             
-            $user = \React\Promise\resolve($user);
+            $user = resolve($user);
         }
         
-        $user->done(function (\CharlotteDunois\Yasmin\Models\User $user) use ($data) {
+        $user->done(function (User $user) use ($data) {
             $guild = $this->client->guilds->get($data['guild_id']);
             if($guild) {
                 $presence = $guild->presences->get($user->id);

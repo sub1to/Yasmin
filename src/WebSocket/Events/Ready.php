@@ -9,15 +9,23 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Events;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\WSEventInterface;
+use CharlotteDunois\Yasmin\Models\Guild;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use function ceil;
+use function max;
+
 /**
  * WS Event
  * @see https://discordapp.com/developers/docs/topics/gateway#ready
  * @internal
  */
-class Ready implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
+class Ready implements WSEventInterface {
     /**
      * The client.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
@@ -27,7 +35,7 @@ class Ready implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
      */
     protected $ready = false;
     
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager) {
+    function __construct(Client $client, WSManager $wsmanager) {
         $this->client = $client;
         
         $this->client->once('ready', function () {
@@ -35,7 +43,7 @@ class Ready implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
         });
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void {
+    function handle(WSConnection $ws, $data): void {
         if(empty($data['user']['bot'])) {
             $ws->emit('self.error', 'User accounts are not supported');
             return;
@@ -60,7 +68,7 @@ class Ready implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
         
         foreach($data['guilds'] as $guild) {
             if(!$this->client->guilds->has($guild['id'])) {
-                $guild = new \CharlotteDunois\Yasmin\Models\Guild($this->client, $guild);
+                $guild = new Guild($this->client, $guild);
                 $this->client->guilds->set($guild->id, $guild);
             }
             
@@ -74,8 +82,8 @@ class Ready implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
         }
         
         // Emit ready after waiting N guilds * 1.2 seconds - we waited long enough for Discord to get the guilds to us
-        $gtime = \ceil(($unavailableGuilds * 1.2));
-        $timer = $this->client->addTimer(\max(5, $gtime), function () use (&$unavailableGuilds) {
+        $gtime = ceil(($unavailableGuilds * 1.2));
+        $timer = $this->client->addTimer(max(5, $gtime), function () use (&$unavailableGuilds) {
             if($unavailableGuilds > 0) {
                 $this->client->wsmanager()->emit('self.ws.ready');
             }

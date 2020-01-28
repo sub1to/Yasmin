@@ -9,20 +9,29 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\EmojiStorageInterface;
+use InvalidArgumentException;
+use function is_int;
+use function is_string;
+
 /**
  * Emoji Storage to store emojis, utilizes Collection.
  */
-class EmojiStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\EmojiStorageInterface {
+class EmojiStorage extends Storage implements EmojiStorageInterface {
     /**
      * The guild this storage belongs to.
-     * @var \CharlotteDunois\Yasmin\Models\Guild
+     * @var Guild
      */
     protected $guild;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, ?\CharlotteDunois\Yasmin\Models\Guild $guild = null, ?array $data = null) {
+
+	/**
+	 * @param Client $client
+	 * @param Guild|null $guild
+	 * @param array|null $data
+	 * @internal
+	 */
+    function __construct(Client $client, ?Guild $guild = null, ?array $data = null) {
         parent::__construct($client, $data);
         $this->guild = $guild;
         
@@ -31,28 +40,28 @@ class EmojiStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
     
     /**
      * Resolves given data to an emoji.
-     * @param \CharlotteDunois\Yasmin\Models\Emoji|\CharlotteDunois\Yasmin\Models\MessageReaction|string|int  $emoji  string/int = emoji ID
-     * @return \CharlotteDunois\Yasmin\Models\Emoji
-     * @throws \InvalidArgumentException
+     * @param Emoji|MessageReaction|string|int  $emoji  string/int = emoji ID
+     * @return Emoji
+     * @throws InvalidArgumentException
      */
     function resolve($emoji) {
-        if($emoji instanceof \CharlotteDunois\Yasmin\Models\Emoji) {
+        if($emoji instanceof Emoji) {
             return $emoji;
         }
         
-        if($emoji instanceof \CharlotteDunois\Yasmin\Models\MessageReaction) {
+        if($emoji instanceof MessageReaction) {
             return $emoji->emoji;
         }
         
-        if(\is_int($emoji)) {
+        if(is_int($emoji)) {
             $emoji = (string) $emoji;
         }
         
-        if(\is_string($emoji) && parent::has($emoji)) {
+        if(is_string($emoji) && parent::has($emoji)) {
             return parent::get($emoji);
         }
         
-        throw new \InvalidArgumentException('Unable to resolve unknown emoji');
+        throw new InvalidArgumentException('Unable to resolve unknown emoji');
     }
     
     /**
@@ -67,7 +76,7 @@ class EmojiStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
     /**
      * {@inheritdoc}
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\Emoji|null
+     * @return Emoji|null
      */
     function get($key) {
         return parent::get($key);
@@ -76,7 +85,7 @@ class EmojiStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
     /**
      * {@inheritdoc}
      * @param string                                $key
-     * @param \CharlotteDunois\Yasmin\Models\Emoji  $value
+     * @param Emoji $value
      * @return $this
      */
     function set($key, $value) {
@@ -105,7 +114,7 @@ class EmojiStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
     /**
      * Factory to create (or retrieve existing) emojis.
      * @param array  $data
-     * @return \CharlotteDunois\Yasmin\Models\Emoji
+     * @return Emoji
      * @internal
      */
     function factory(array $data) {
@@ -115,7 +124,7 @@ class EmojiStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
             return $emoji;
         }
         
-        $emoji = new \CharlotteDunois\Yasmin\Models\Emoji($this->client, $this->guild, $data);
+        $emoji = new Emoji($this->client, $this->guild, $data);
         
         if($emoji->id !== null) {
             $this->set($emoji->id, $emoji);

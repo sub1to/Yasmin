@@ -9,27 +9,38 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\GuildStoreChannelInterface;
+use CharlotteDunois\Yasmin\Traits\GuildChannelTrait;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use DateTime;
+use Exception;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents a guild's store channel.
  *
  * @property string                                                      $id                     The channel ID.
- * @property \CharlotteDunois\Yasmin\Models\Guild                        $guild                  The associated guild.
+ * @property Guild $guild                  The associated guild.
  * @property int                                                         $createdTimestamp       The timestamp of when this channel was created.
  * @property string                                                      $name                   The channel name.
  * @property bool                                                        $nsfw                   Whether the channel is marked as NSFW or not.
  * @property string|null                                                 $parentID               The ID of the parent channel, or null.
  * @property int                                                         $position               The channel position.
- * @property \CharlotteDunois\Collect\Collection                         $permissionOverwrites   A collection of PermissionOverwrite instances, mapped by their ID.
+ * @property Collection                         $permissionOverwrites   A collection of PermissionOverwrite instances, mapped by their ID.
  *
- * @property \DateTime                                                   $createdAt              The DateTime instance of createdTimestamp.
- * @property \CharlotteDunois\Yasmin\Models\CategoryChannel|null         $parent                 The channel's parent, or null.
+ * @property DateTime                                                   $createdAt              The DateTime instance of createdTimestamp.
+ * @property CategoryChannel|null         $parent                 The channel's parent, or null.
  */
-class GuildStoreChannel extends ClientBase implements \CharlotteDunois\Yasmin\Interfaces\GuildStoreChannelInterface {
-    use \CharlotteDunois\Yasmin\Traits\GuildChannelTrait;
+class GuildStoreChannel extends ClientBase implements GuildStoreChannelInterface {
+    use GuildChannelTrait;
     
     /**
      * The associated guild.
-     * @var \CharlotteDunois\Yasmin\Models\Guild
+     * @var Guild
      */
     protected $guild;
     
@@ -65,7 +76,7 @@ class GuildStoreChannel extends ClientBase implements \CharlotteDunois\Yasmin\In
     
     /**
      * A collection of PermissionOverwrite instances, mapped by their ID.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $permissionOverwrites;
     
@@ -74,36 +85,40 @@ class GuildStoreChannel extends ClientBase implements \CharlotteDunois\Yasmin\In
      * @var int
      */
     protected $createdTimestamp;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Guild $guild, array $channel) {
+
+	/**
+	 * @param Client $client
+	 * @param Guild $guild
+	 * @param array $channel
+	 * @internal
+	 */
+    function __construct(Client $client, Guild $guild, array $channel) {
         parent::__construct($client);
         $this->guild = $guild;
         
         $this->id = (string) $channel['id'];
         
-        $this->createdTimestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id)->timestamp;
-        $this->permissionOverwrites = new \CharlotteDunois\Collect\Collection();
+        $this->createdTimestamp = (int) Snowflake::deconstruct($this->id)->timestamp;
+        $this->permissionOverwrites = new Collection();
         
         $this->_patch($channel);
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @throws \RuntimeException
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws RuntimeException
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
         switch($name) {
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
             case 'parent':
                 return $this->guild->channels->get($this->parentID);
@@ -120,22 +135,23 @@ class GuildStoreChannel extends ClientBase implements \CharlotteDunois\Yasmin\In
     function __toString() {
         return '<#'.$this->id.'>';
     }
-    
-    /**
-     * @return void
-     * @internal
-     */
-    function _patch(array $channel) {
+
+	/**
+	 * @param array $channel
+	 * @return void
+	 * @internal
+	 */
+	function _patch(array $channel) {
         $this->name = (string) ($channel['name'] ?? $this->name ?? '');
         $this->nsfw = (bool) ($channel['nsfw'] ?? $this->nsfw ?? false);
-        $this->parentID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($channel['parent_id'] ?? $this->parentID ?? null), 'string');
+        $this->parentID = DataHelpers::typecastVariable(($channel['parent_id'] ?? $this->parentID ?? null), 'string');
         $this->position = (int) ($channel['position'] ?? $this->position ?? 0);
         
         if(isset($channel['permission_overwrites'])) {
             $this->permissionOverwrites->clear();
             
             foreach($channel['permission_overwrites'] as $permission) {
-                $overwrite = new \CharlotteDunois\Yasmin\Models\PermissionOverwrite($this->client, $this, $permission);
+                $overwrite = new PermissionOverwrite($this->client, $this, $permission);
                 $this->permissionOverwrites->set($overwrite->id, $overwrite);
             }
         }

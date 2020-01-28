@@ -9,6 +9,10 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents a voice region.
  *
@@ -55,11 +59,13 @@ class VoiceRegion extends ClientBase {
      * @var bool
      */
     protected $custom;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $region) {
+
+	/**
+	 * @param Client $client
+	 * @param array $region
+	 * @internal
+	 */
+    function __construct(Client $client, array $region) {
         parent::__construct($client);
         
         $this->id = (string) $region['id'];
@@ -73,11 +79,11 @@ class VoiceRegion extends ClientBase {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         

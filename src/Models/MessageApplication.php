@@ -9,6 +9,12 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use InvalidArgumentException;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents a message application.
  *
@@ -48,11 +54,13 @@ class MessageApplication extends ClientBase {
      * @var string
      */
     protected $description;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $application) {
+
+	/**
+	 * @param Client $client
+	 * @param array $application
+	 * @internal
+	 */
+    function __construct(Client $client, array $application) {
         parent::__construct($client);
         
         $this->id = (string) $application['id'];
@@ -66,11 +74,11 @@ class MessageApplication extends ClientBase {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -84,11 +92,11 @@ class MessageApplication extends ClientBase {
      */
     function getCoverImageURL(?int $size = null) {
         if($size & ($size - 1)) {
-            throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+            throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
         }
         
         if($this->coverImage !== null) {
-            return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['appicons'], $this->id, $this->coverImage).(!empty($size) ? '?size='.$size : '');
+            return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['appicons'], $this->id, $this->coverImage).(!empty($size) ? '?size='.$size : '');
         }
         
         return null;

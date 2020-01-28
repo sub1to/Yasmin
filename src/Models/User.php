@@ -9,6 +9,22 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use CharlotteDunois\Yasmin\Interfaces\DMChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\GroupDMChannelInterface;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\ImageHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use DateTime;
+use Exception;
+use InvalidArgumentException;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents an user on Discord.
  *
@@ -23,7 +39,7 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property bool                                                 $webhook            Determines wether the user is a webhook or not.
  * @property int                                                  $createdTimestamp   The timestamp of when this user was created.
  *
- * @property \DateTime                                            $createdAt          An DateTime instance of the createdTimestamp.
+ * @property DateTime                                            $createdAt          An DateTime instance of the createdTimestamp.
  * @property string                                               $tag                Username#Discriminator.
  */
 class User extends ClientBase {
@@ -92,35 +108,40 @@ class User extends ClientBase {
      * @var bool
      */
     protected $userFetched = false;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $user, bool $isWebhook = false, bool $userFetched = false) {
+
+	/**
+	 * @param Client $client
+	 * @param array $user
+	 * @param bool $isWebhook
+	 * @param bool $userFetched
+	 * @internal
+	 */
+    function __construct(Client $client, array $user, bool $isWebhook = false, bool $userFetched = false) {
         parent::__construct($client);
         
         $this->id = (string) $user['id'];
         $this->webhook = $isWebhook;
         $this->userFetched = $userFetched;
         
-        $this->createdTimestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id)->timestamp;
+        $this->createdTimestamp = (int) Snowflake::deconstruct($this->id)->timestamp;
         $this->_patch($user);
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @throws \RuntimeException
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws RuntimeException
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
         switch($name) {
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
             case 'tag':
                 return $this->username.'#'.$this->discriminator;
@@ -142,15 +163,15 @@ class User extends ClientBase {
     
     /**
      * Opens a DM channel to this user. Resolves with an instance of DMChannel.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\DMChannel
      */
     function createDM() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $channel = $this->client->channels->first(function ($channel) {
                 return (
-                    $channel instanceof \CharlotteDunois\Yasmin\Interfaces\DMChannelInterface &&
-                    !($channel instanceof \CharlotteDunois\Yasmin\Interfaces\GroupDMChannelInterface) &&
+                    $channel instanceof DMChannelInterface &&
+                    !($channel instanceof GroupDMChannelInterface) &&
                     $channel->isRecipient($this)
                 );
             });
@@ -168,12 +189,12 @@ class User extends ClientBase {
     
     /**
      * Deletes an existing DM channel to this user. Resolves with $this.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function deleteDM() {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) {
             $channel = $this->client->channels->first(function ($channel) {
-                return ($channel instanceof \CharlotteDunois\Yasmin\Interfaces\DMChannelInterface && $channel->isRecipient($this));
+                return ($channel instanceof DMChannelInterface && $channel->isRecipient($this));
             });
             
             if(!$channel) {
@@ -191,14 +212,14 @@ class User extends ClientBase {
      * Get the default avatar URL.
      * @param int|null  $size    Any powers of 2 (16-2048).
      * @return string
-     * @throws \InvalidArgumentException Thrown if $size is not a power of 2
+     * @throws InvalidArgumentException Thrown if $size is not a power of 2
      */
     function getDefaultAvatarURL(?int $size = 1024) {
-        if(!\CharlotteDunois\Yasmin\Utils\ImageHelpers::isPowerOfTwo($size)) {
-            throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+        if(!ImageHelpers::isPowerOfTwo($size)) {
+            throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
         }
         
-        return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['defaultavatars'], ($this->discriminator % 5), 'png').(!empty($size) ? '?size='.$size : '');
+        return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['defaultavatars'], ($this->discriminator % 5), 'png').(!empty($size) ? '?size='.$size : '');
     }
     
     /**
@@ -206,11 +227,11 @@ class User extends ClientBase {
      * @param int|null  $size    Any powers of 2 (16-2048).
      * @param string    $format  One of png, webp, jpg or gif (empty = default format).
      * @return string|null
-     * @throws \InvalidArgumentException Thrown if $size is not a power of 2
+     * @throws InvalidArgumentException Thrown if $size is not a power of 2
      */
     function getAvatarURL(?int $size = 1024, string $format = '') {
-        if(!\CharlotteDunois\Yasmin\Utils\ImageHelpers::isPowerOfTwo($size)) {
-            throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+        if(!ImageHelpers::isPowerOfTwo($size)) {
+            throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
         }
         
         if($this->avatar === null) {
@@ -218,10 +239,10 @@ class User extends ClientBase {
         }
         
         if(empty($format)) {
-            $format = \CharlotteDunois\Yasmin\Utils\ImageHelpers::getImageExtension($this->avatar);
+            $format = ImageHelpers::getImageExtension($this->avatar);
         }
         
-        return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['avatars'], $this->id, $this->avatar, $format).(!empty($size) ? '?size='.$size : '');
+        return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['avatars'], $this->id, $this->avatar, $format).(!empty($size) ? '?size='.$size : '');
     }
     
     /**
@@ -229,7 +250,7 @@ class User extends ClientBase {
      * @param int|null  $size    Any powers of 2 (16-2048).
      * @param string    $format  One of png, webp, jpg or gif (empty = default format).
      * @return string
-     * @throws \InvalidArgumentException Thrown if $size is not a power of 2
+     * @throws InvalidArgumentException Thrown if $size is not a power of 2
      */
     function getDisplayAvatarURL(?int $size = 1024, string $format = '') {
         return ($this->avatar ? $this->getAvatarURL($size, $format) : $this->getDefaultAvatarURL($size));
@@ -237,7 +258,7 @@ class User extends ClientBase {
     
     /**
      * Gets the presence for this user, or null.
-     * @return \CharlotteDunois\Yasmin\Models\Presence|null
+     * @return Presence|null
      */
     function getPresence() {
         if($this->client->presences->has($this->id)) {
@@ -259,15 +280,15 @@ class User extends ClientBase {
     /**
      * Fetches the User's connections. Requires connections scope. Resolves with a Collection of UserConnection instances, mapped by their ID.
      * @param string  $accessToken
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\UserConnection
      */
     function fetchUserConnections(string $accessToken) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($accessToken) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($accessToken) {
             $this->client->apimanager()->endpoints->user->getUserConnections($accessToken)->done(function ($data) use ($resolve) {
-                $collect = new \CharlotteDunois\Collect\Collection();
+                $collect = new Collection();
                 foreach($data as $conn) {
-                    $connection = new \CharlotteDunois\Yasmin\Models\UserConnection($this->client, $this, $conn);
+                    $connection = new UserConnection($this->client, $this, $conn);
                     $collect->set($connection->id, $connection);
                 }
                 
@@ -283,12 +304,13 @@ class User extends ClientBase {
     function __toString() {
         return '<@'.$this->id.'>';
     }
-    
-    /**
-     * @return void
-     * @internal
-     */
-    function _patch(array $user) {
+
+	/**
+	 * @param array $user
+	 * @return void
+	 * @internal
+	 */
+	function _patch(array $user) {
         $this->username = (string) $user['username'];
         $this->discriminator = (string) ($user['discriminator'] ?? '0000');
         $this->bot = (!empty($user['bot']));

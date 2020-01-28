@@ -9,15 +9,21 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use RuntimeException;
+use function preg_match_all;
+use function property_exists;
+
 /**
  * Holds message mentions.
  *
- * @property \CharlotteDunois\Yasmin\Models\Message  $message   The message these mentions belongs to.
- * @property \CharlotteDunois\Collect\Collection     $channels  The collection which holds all channel mentions, mapped by their ID.
+ * @property Message $message   The message these mentions belongs to.
+ * @property Collection     $channels  The collection which holds all channel mentions, mapped by their ID.
  * @property bool                                    $everyone  Whether the message mentions @everyone or @here.
- * @property \CharlotteDunois\Collect\Collection     $members   The collection which holds all members mentions (only in guild channels), mapped by their ID. Only cached members can be put into this Collection.
- * @property \CharlotteDunois\Collect\Collection     $roles     The collection which holds all roles mentions, mapped by their ID.
- * @property \CharlotteDunois\Collect\Collection     $users     The collection which holds all users mentions, mapped by their ID.
+ * @property Collection     $members   The collection which holds all members mentions (only in guild channels), mapped by their ID. Only cached members can be put into this Collection.
+ * @property Collection     $roles     The collection which holds all roles mentions, mapped by their ID.
+ * @property Collection     $users     The collection which holds all users mentions, mapped by their ID.
  */
 class MessageMentions extends ClientBase {
     /**
@@ -50,13 +56,13 @@ class MessageMentions extends ClientBase {
     
     /**
      * The message these mentions belongs to.
-     * @var \CharlotteDunois\Yasmin\Models\Message
+     * @var Message
      */
     protected $message;
     
     /**
      * The collection which holds all channel mentions, mapped by their ID.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $channels;
     
@@ -68,37 +74,40 @@ class MessageMentions extends ClientBase {
     
     /**
      * The collection which holds all members mentions (only in guild channels), mapped by their ID. Only cached members can be put into this Collection.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $members;
     
     /**
      * The collection which holds all roles mentions, mapped by their ID.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $roles;
     
     /**
      * The collection which holds all users mentions, mapped by their ID.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $users;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Message $message, array $msg) {
+
+	/**
+	 * @param Client $client
+	 * @param Message $message
+	 * @param array $msg
+	 * @internal
+	 */
+    function __construct(Client $client, Message $message, array $msg) {
         parent::__construct($client);
         $this->message = $message;
         
-        $this->channels = new \CharlotteDunois\Collect\Collection();
-        $this->members = new \CharlotteDunois\Collect\Collection();
-        $this->roles = new \CharlotteDunois\Collect\Collection();
-        $this->users = new \CharlotteDunois\Collect\Collection();
+        $this->channels = new Collection();
+        $this->members = new Collection();
+        $this->roles = new Collection();
+        $this->users = new Collection();
         
         $this->everyone = !empty($msg['mention_everyone']);
         
-        \preg_match_all(self::PATTERN_CHANNELS, $message->content, $matches);
+        preg_match_all(self::PATTERN_CHANNELS, $message->content, $matches);
         if(!empty($matches[1])) {
             foreach($matches[1] as $match) {
                 $channel = $this->client->channels->get($match);
@@ -125,7 +134,7 @@ class MessageMentions extends ClientBase {
             }
         }
         
-        if($message->channel instanceof \CharlotteDunois\Yasmin\Models\TextChannel && !empty($msg['mention_roles'])) {
+        if($message->channel instanceof TextChannel && !empty($msg['mention_roles'])) {
             foreach($msg['mention_roles'] as $id) {
                 $role = $message->channel->guild->roles->get($id);
                 if($role) {
@@ -138,11 +147,11 @@ class MessageMentions extends ClientBase {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         

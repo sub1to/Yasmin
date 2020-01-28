@@ -9,6 +9,11 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents an OAuth Application.
  *
@@ -19,7 +24,7 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property string[]|null                                        $rpcOrigins           An array of RPC origin url strings, if RPC is enabled, or null.
  * @property bool                                                 $botPublic            Whether the bot is public.
  * @property bool                                                 $botRequireCodeGrant  Whether the bot requires a code grant (full OAuth flow).
- * @property \CharlotteDunois\Yasmin\Models\User|null             $owner                The User instance of the owner, or null.
+ * @property User|null             $owner                The User instance of the owner, or null.
  */
 class OAuthApplication extends ClientBase {
     /**
@@ -66,14 +71,16 @@ class OAuthApplication extends ClientBase {
     
     /**
      * The User instance of the owner, or null.
-     * @var \CharlotteDunois\Yasmin\Models\User|null
+     * @var User|null
      */
     protected $owner;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $application) {
+
+	/**
+	 * @param Client $client
+	 * @param array $application
+	 * @internal
+	 */
+    function __construct(Client $client, array $application) {
         parent::__construct($client);
         
         $this->id = (string) $application['id'];
@@ -89,11 +96,11 @@ class OAuthApplication extends ClientBase {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -108,7 +115,7 @@ class OAuthApplication extends ClientBase {
      */
     function getIconURL(?int $size = null, string $format = 'png') {
         if($this->icon !== null) {
-            return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['appicons'], $this->id, $this->icon, $format).(!empty($size) ? '?size='.$size : '');
+            return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['appicons'], $this->id, $this->icon, $format).(!empty($size) ? '?size='.$size : '');
         }
         
         return null;

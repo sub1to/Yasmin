@@ -9,10 +9,21 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use DateTime;
+use Exception;
+use function array_reduce;
+use function array_search;
+use function in_array;
+use function property_exists;
+use function strtolower;
+
 /**
  * Represents a guild audit log entry.
  *
- * @property \CharlotteDunois\Yasmin\Models\AuditLog                                                    $log               The guild audit log which this entry belongs to.
+ * @property AuditLog $log               The guild audit log which this entry belongs to.
  * @property string                                                                                     $id                The ID of the audit log.
  * @property array[]                                                                                    $changes           Specific property changes.
  * @property string                                                                                     $userID            The ID of the user which triggered the audit log.
@@ -22,8 +33,8 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property mixed|null                                                                                 $extra             Any extra data from the entry, or null.
  * @property mixed|null                                                                                 $target            The target of this entry, or null.
  *
- * @property \DateTime                                                                                  $createdAt         The DateTime instance of createdTimestamp.
- * @property \CharlotteDunois\Yasmin\Models\User|null                                                   $user              The user which triggered the audit log.
+ * @property DateTime                                                                                  $createdAt         The DateTime instance of createdTimestamp.
+ * @property User|null                                                   $user              The user which triggered the audit log.
  */
 class AuditLogEntry extends ClientBase {
     /**
@@ -63,7 +74,7 @@ class AuditLogEntry extends ClientBase {
     
     /**
      * The guild audit log which this entry belongs to.
-     * @var \CharlotteDunois\Yasmin\Models\AuditLog
+     * @var AuditLog
      */
     protected $log;
     
@@ -114,21 +125,24 @@ class AuditLogEntry extends ClientBase {
      * @var mixed|null
      */
     protected $target;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\AuditLog $log, array $entry) {
+
+	/**
+	 * @param Client $client
+	 * @param AuditLog $log
+	 * @param array $entry
+	 * @internal
+	 */
+    function __construct(Client $client, AuditLog $log, array $entry) {
         parent::__construct($client);
         $this->log = $log;
         
         $this->id = (string) $entry['id'];
         $this->changes = $entry['changes'] ?? array();
         $this->userID = (string) $entry['user_id'];
-        $this->actionType = (\array_search($entry['action_type'], self::ACTION_TYPES, true) ?: '');
-        $this->reason = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($entry['reason'] ?? null), 'string');
+        $this->actionType = (array_search($entry['action_type'], self::ACTION_TYPES, true) ?: '');
+        $this->reason = DataHelpers::typecastVariable(($entry['reason'] ?? null), 'string');
         
-        $this->createdTimestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($this->id)->timestamp;
+        $this->createdTimestamp = (int) Snowflake::deconstruct($this->id)->timestamp;
         
         if(!empty($entry['options'])) {
             if($this->actionType === self::ACTION_TYPES['MEMBER_PRUNE']) {
@@ -162,18 +176,18 @@ class AuditLogEntry extends ClientBase {
         $targetType = self::getTargetType($entry['action_type']);
         
         if($targetType === 'UNKNOWN') {
-            $this->target = \array_reduce($this->changes, function ($carry,  $el) {
+            $this->target = array_reduce($this->changes, function ($carry,  $el) {
                 $carry[$el['key']] = $el['new'] ?? $el['old'] ?? null;
                 return $carry;
             }, array());
             $this->target['id'] = $entry['target_id'] ?? null;
         } elseif($targetType === 'USER' || $targetType === 'GUILD') {
-            $method = \strtolower($targetType).'s';
+            $method = strtolower($targetType).'s';
             $this->target = $this->client->$method->get($entry['target_id']);
         } elseif($targetType === 'WEBHOOK') {
             $this->target = $this->log->webhooks->get($entry['target_id']);
         } elseif($targetType === 'INVITE') {
-            if($this->log->guild->me->permissions->has(\CharlotteDunois\Yasmin\Models\Permissions::PERMISSIONS['MANAGE_GUILD'])) {
+            if($this->log->guild->me->permissions->has(Permissions::PERMISSIONS['MANAGE_GUILD'])) {
                 $change = null;
                 
                 foreach($this->changes as $change) {
@@ -191,7 +205,7 @@ class AuditLogEntry extends ClientBase {
                     });
                 }
             } else {
-                $this->target = \array_reduce($this->changes, function ($el, $carry) {
+                $this->target = array_reduce($this->changes, function ($el, $carry) {
                     $carry[$el['key']] = $el['new'] ?? $el['old'] ?? null;
                     return $carry;
                 }, array());
@@ -199,24 +213,25 @@ class AuditLogEntry extends ClientBase {
         } elseif($targetType === 'MESSAGE') {
             $this->target = $this->client->users->get($entry['target_id']);
         } else {
-            $method = \strtolower($targetType).'s';
+            $method = strtolower($targetType).'s';
             $this->target = $this->log->guild->$method->get($entry['target_id']);
         }
     }
-    
-    /**
-     * {@inheritdoc}
-     * @return mixed
-     * @internal
-     */
+
+	/**
+	 * {@inheritdoc}
+	 * @return mixed
+	 * @throws Exception
+	 * @internal
+	 */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
         switch($name) {
             case 'createdAt':
-                return \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime($this->createdTimestamp);
+                return DataHelpers::makeDateTime($this->createdTimestamp);
             break;
             case 'user':
                 return $this->client->users->get($this->userID);
@@ -232,7 +247,7 @@ class AuditLogEntry extends ClientBase {
      * @return string
      */
     static function getActionType(int $actionType) {
-        if(\in_array($actionType, array(
+        if(in_array($actionType, array(
             self::ACTION_TYPES['CHANNEL_CREATE'],
             self::ACTION_TYPES['CHANNEL_OVERWRITE_CREATE'],
             self::ACTION_TYPES['EMOJI_CREATE'],
@@ -244,7 +259,7 @@ class AuditLogEntry extends ClientBase {
             return 'CREATE';
         }
         
-        if(\in_array($actionType, array(
+        if(in_array($actionType, array(
             self::ACTION_TYPES['CHANNEL_DELETE'],
             self::ACTION_TYPES['CHANNEL_OVERWRITE_DELETE'],
             self::ACTION_TYPES['EMOJI_DELETE'],
@@ -259,7 +274,7 @@ class AuditLogEntry extends ClientBase {
             return 'DELETE';
         }
         
-        if(\in_array($actionType, array(
+        if(in_array($actionType, array(
             self::ACTION_TYPES['CHANNEL_UPDATE'],
             self::ACTION_TYPES['CHANNEL_OVERWRITE_UPDATE'],
             self::ACTION_TYPES['EMOJI_UPDATE'],

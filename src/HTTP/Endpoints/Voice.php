@@ -9,6 +9,8 @@
 
 namespace CharlotteDunois\Yasmin\HTTP\Endpoints;
 
+use CharlotteDunois\Yasmin\HTTP\APIManager;
+
 /**
  * Handles the API endpoints "Voice".
  * @internal
@@ -23,15 +25,15 @@ class Voice {
     );
     
     /**
-     * @var \CharlotteDunois\Yasmin\HTTP\APIManager
+     * @var APIManager
      */
     protected $api;
     
     /**
      * Constructor.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIManager $api
+     * @param APIManager $api
      */
-    function __construct(\CharlotteDunois\Yasmin\HTTP\APIManager $api) {
+    function __construct(APIManager $api) {
         $this->api = $api;
     }
     

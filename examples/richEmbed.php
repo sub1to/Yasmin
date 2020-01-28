@@ -11,10 +11,14 @@
  * This example will demonstrate how to send a Rich Embed to a specific channel once ready.
  */
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Models\MessageEmbed;
+use React\EventLoop\Factory;
+
 require_once(__DIR__.'/vendor/autoload.php');
 
-$loop = \React\EventLoop\Factory::create();
-$client = new \CharlotteDunois\Yasmin\Client(array(), $loop);
+$loop = Factory::create();
+$client = new Client(array(), $loop);
 
 $client->once('ready', function () use ($client) {
     try {
@@ -22,7 +26,7 @@ $client->once('ready', function () use ($client) {
         
         // Making sure the channel exists
         if($channel) {
-            $embed = new \CharlotteDunois\Yasmin\Models\MessageEmbed();
+            $embed = new MessageEmbed();
             
             // Build the embed
             $embed
@@ -49,7 +53,7 @@ $client->once('ready', function () use ($client) {
                         echo $error.PHP_EOL;
                     });
         }
-    } catch(\Exception $error) {
+    } catch(Exception $error) {
         // Handle exception
     }
 });

@@ -9,15 +9,25 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Events;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\ChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface;
+use CharlotteDunois\Yasmin\Interfaces\WSEventInterface;
+use CharlotteDunois\Yasmin\Models\GuildMember;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSManager;
+use function in_array;
+use function React\Promise\all;
+
 /**
  * WS Event
  * @see https://discordapp.com/developers/docs/topics/gateway#channel-update
  * @internal
  */
-class ChannelUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterface {
+class ChannelUpdate implements WSEventInterface {
     /**
      * The client.
-     * @var \CharlotteDunois\Yasmin\Client
+     * @var Client
      */
     protected $client;
     
@@ -27,16 +37,16 @@ class ChannelUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterfa
      */
     protected $clones = false;
     
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\WebSocket\WSManager $wsmanager) {
+    function __construct(Client $client, WSManager $wsmanager) {
         $this->client = $client;
         
         $clones = $this->client->getOption('disableClones', array());
-        $this->clones = !($clones === true || \in_array('channelUpdate', (array) $clones));
+        $this->clones = !($clones === true || in_array('channelUpdate', (array) $clones));
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $data): void {
+    function handle(WSConnection $ws, $data): void {
         $channel = $this->client->channels->get($data['id']);
-        if($channel instanceof \CharlotteDunois\Yasmin\Interfaces\ChannelInterface) {
+        if($channel instanceof ChannelInterface) {
             $oldChannel = null;
             if($this->clones) {
                 $oldChannel = clone $channel;
@@ -45,10 +55,10 @@ class ChannelUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterfa
             $channel->_patch($data);
             
             $prom = array();
-            if($channel instanceof \CharlotteDunois\Yasmin\Interfaces\GuildChannelInterface) {
+            if($channel instanceof GuildChannelInterface) {
                 foreach($channel->getPermissionOverwrites() as $overwrite) {
                     if($overwrite->type === 'member' && $overwrite->target === null) {
-                        $prom[] = $channel->getGuild()->fetchMember($overwrite->id)->then(function (\CharlotteDunois\Yasmin\Models\GuildMember $member) use ($overwrite) {
+                        $prom[] = $channel->getGuild()->fetchMember($overwrite->id)->then(function (GuildMember $member) use ($overwrite) {
                             $overwrite->_patch(array('target' => $member));
                         }, function () {
                             // Do nothing
@@ -57,7 +67,7 @@ class ChannelUpdate implements \CharlotteDunois\Yasmin\Interfaces\WSEventInterfa
                 }
             }
             
-            \React\Promise\all($prom)->done(function () use ($channel, $oldChannel) {
+            all($prom)->done(function () use ($channel, $oldChannel) {
                 $this->client->queuedEmit('channelUpdate', $channel, $oldChannel);
             }, array($this->client, 'handlePromiseRejection'));
         }

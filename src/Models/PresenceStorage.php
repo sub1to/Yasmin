@@ -9,48 +9,57 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\PresenceStorageInterface;
+use Exception;
+use InvalidArgumentException;
+use function is_int;
+use function is_string;
+
 /**
  * Presence Storage, which utilizes Collection.
  */
-class PresenceStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\PresenceStorageInterface {
+class PresenceStorage extends Storage implements PresenceStorageInterface {
     /**
      * Whether the presence cache is enabled.
      * @var bool
      */
     protected $enabled;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, ?array $data = null) {
+
+	/**
+	 * @param Client $client
+	 * @param array|null $data
+	 * @internal
+	 */
+    function __construct(Client $client, ?array $data = null) {
         parent::__construct($client, $data);
         $this->enabled = (bool) $this->client->getOption('presenceCache', true);
     }
     
     /**
      * Resolves given data to a presence.
-     * @param \CharlotteDunois\Yasmin\Models\Presence|\CharlotteDunois\Yasmin\Models\User|string|int  $presence  string/int = user ID
-     * @return \CharlotteDunois\Yasmin\Models\Presence
-     * @throws \InvalidArgumentException
+     * @param Presence|User|string|int  $presence  string/int = user ID
+     * @return Presence
+     * @throws InvalidArgumentException
      */
     function resolve($presence) {
-        if($presence instanceof \CharlotteDunois\Yasmin\Models\Presence) {
+        if($presence instanceof Presence) {
             return $presence;
         }
         
-        if($presence instanceof \CharlotteDunois\Yasmin\Models\User) {
+        if($presence instanceof User) {
             $presence = $presence->id;
         }
         
-        if(\is_int($presence)) {
+        if(is_int($presence)) {
             $presence = (string) $presence;
         }
         
-        if(\is_string($presence) && parent::has($presence)) {
+        if(is_string($presence) && parent::has($presence)) {
             return parent::get($presence);
         }
         
-        throw new \InvalidArgumentException('Unable to resolve unknown presence');
+        throw new InvalidArgumentException('Unable to resolve unknown presence');
     }
     
     /**
@@ -65,7 +74,7 @@ class PresenceStorage extends Storage implements \CharlotteDunois\Yasmin\Interfa
     /**
      * {@inheritdoc}
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\Presence|null
+     * @return Presence|null
      */
     function get($key) {
         return parent::get($key);
@@ -74,7 +83,7 @@ class PresenceStorage extends Storage implements \CharlotteDunois\Yasmin\Interfa
     /**
      * {@inheritdoc}
      * @param string                                   $key
-     * @param \CharlotteDunois\Yasmin\Models\Presence  $value
+     * @param Presence $value
      * @return $this
      */
     function set($key, $value) {
@@ -107,15 +116,16 @@ class PresenceStorage extends Storage implements \CharlotteDunois\Yasmin\Interfa
         
         return $this;
     }
-    
-    /**
-     * Factory to create presences.
-     * @param array  $data
-     * @return \CharlotteDunois\Yasmin\Models\Presence
-     * @internal
-     */
+
+	/**
+	 * Factory to create presences.
+	 * @param array $data
+	 * @return Presence
+	 * @throws Exception
+	 * @internal
+	 */
     function factory(array $data) {
-        $presence = new \CharlotteDunois\Yasmin\Models\Presence($this->client, $data);
+        $presence = new Presence($this->client, $data);
         $this->set($presence->userID, $presence);
         return $presence;
     }

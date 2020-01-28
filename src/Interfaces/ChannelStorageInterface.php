@@ -9,13 +9,16 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Models\Guild;
+use InvalidArgumentException;
+
 /**
  * Something all channel storages implement. The storage also is used as factory.
  */
 interface ChannelStorageInterface extends StorageInterface {
     /**
      * Returns the current element. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Interfaces\ChannelInterface
+     * @return ChannelInterface
      */
     function current();
     
@@ -27,13 +30,13 @@ interface ChannelStorageInterface extends StorageInterface {
     
     /**
      * Advances the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Interfaces\ChannelInterface|false
+     * @return ChannelInterface|false
      */
     function next();
     
     /**
      * Resets the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Interfaces\ChannelInterface|false
+     * @return ChannelInterface|false
      */
     function rewind();
     
@@ -45,15 +48,15 @@ interface ChannelStorageInterface extends StorageInterface {
     
     /**
      * Returns all items.
-     * @return \CharlotteDunois\Yasmin\Interfaces\ChannelInterface[]
+     * @return ChannelInterface[]
      */
     function all();
     
     /**
      * Resolves given data to a channel.
-     * @param \CharlotteDunois\Yasmin\Interfaces\ChannelInterface|string|int  $channel  string/int = channel ID
-     * @return \CharlotteDunois\Yasmin\Interfaces\ChannelInterface
-     * @throws \InvalidArgumentException
+     * @param ChannelInterface|string|int  $channel  string/int = channel ID
+     * @return ChannelInterface
+     * @throws InvalidArgumentException
      */
     function resolve($channel);
     
@@ -61,33 +64,33 @@ interface ChannelStorageInterface extends StorageInterface {
      * Determines if a given key exists in the collection.
      * @param string  $key
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
     */
     function has($key);
     
     /**
      * Returns the item at a given key. If the key does not exist, null is returned.
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Interfaces\ChannelInterface|null
-     * @throws \InvalidArgumentException
+     * @return ChannelInterface|null
+     * @throws InvalidArgumentException
     */
     function get($key);
     
     /**
      * Sets a key-value pair.
      * @param string                                               $key
-     * @param \CharlotteDunois\Yasmin\Interfaces\ChannelInterface  $value
+     * @param ChannelInterface $value
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function set($key, $value);
-    
-    /**
-     * Factory to create (or retrieve existing) channels.
-     * @param array                                      $data
-     * @param \CharlotteDunois\Yasmin\Models\Guild|null  $guilds
-     * @return \CharlotteDunois\Yasmin\Interfaces\ChannelInterface
-     * @internal
-     */
-    function factory(array $data, ?\CharlotteDunois\Yasmin\Models\Guild $guild = null);
+
+	/**
+	 * Factory to create (or retrieve existing) channels.
+	 * @param array $data
+	 * @param Guild|null $guild
+	 * @return ChannelInterface
+	 * @internal
+	 */
+    function factory(array $data, ?Guild $guild = null);
 }

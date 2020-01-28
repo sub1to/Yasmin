@@ -9,10 +9,18 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use InvalidArgumentException;
+use RuntimeException;
+use function property_exists;
+use function strpos;
+use function substr;
+
 /**
  * Rich Presence assets.
  *
- * @property \CharlotteDunois\Yasmin\Models\Activity  $activity    The activity which these assets belong to.
+ * @property Activity $activity    The activity which these assets belong to.
  * @property string|null                              $largeImage  The ID of the large image, or null.
  * @property string|null                              $largeText   The text of the large image, or null.
  * @property string|null                              $smallImage  The ID of the small image, or null.
@@ -21,7 +29,7 @@ namespace CharlotteDunois\Yasmin\Models;
 class RichPresenceAssets extends ClientBase {
     /**
      * The activity which these assets belong to.
-     * @var \CharlotteDunois\Yasmin\Models\Activity
+     * @var Activity
      */
     protected $activity;
     
@@ -51,12 +59,12 @@ class RichPresenceAssets extends ClientBase {
     
     /**
      * The manual creation of such an instance is discouraged. There may be an easy and safe way to create such an instance in the future.
-     * @param \CharlotteDunois\Yasmin\Client           $client      The client this instance is for.
-     * @param \CharlotteDunois\Yasmin\Models\Activity  $activity    The activity instance.
+     * @param Client           $client      The client this instance is for.
+     * @param Activity $activity    The activity instance.
      * @param array                                    $assets      An array containing the presence data.
      * @internal
      */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Activity $activity, array $assets) {
+    function __construct(Client $client, Activity $activity, array $assets) {
         parent::__construct($client);
         $this->activity = $activity;
         
@@ -69,11 +77,11 @@ class RichPresenceAssets extends ClientBase {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -88,14 +96,14 @@ class RichPresenceAssets extends ClientBase {
     function getLargeImageURL(?int $size = null) {
         if($this->largeImage !== null) {
             if($size & ($size - 1)) {
-                throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+                throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
             }
             
-            if(\strpos($this->largeImage, 'spotify:') === 0) {
-                return 'https://i.scdn.co/image/'.\substr($this->largeImage, 8);
+            if(strpos($this->largeImage, 'spotify:') === 0) {
+                return 'https://i.scdn.co/image/'. substr($this->largeImage, 8);
             }
             
-            return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['appassets'], $this->activity->applicationID, $this->largeImage).(!empty($size) ? '?size='.$size : '');
+            return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['appassets'], $this->activity->applicationID, $this->largeImage).(!empty($size) ? '?size='.$size : '');
         }
         
         return null;
@@ -109,14 +117,14 @@ class RichPresenceAssets extends ClientBase {
     function getSmallImageURL(?int $size = null) {
         if($this->smallImage !== null) {
             if($size & ($size - 1)) {
-                throw new \InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
+                throw new InvalidArgumentException('Invalid size "'.$size.'", expected any powers of 2');
             }
             
-            if(\strpos($this->smallImage, 'spotify:') === 0) {
-                return 'https://i.scdn.co/image/'.\substr($this->smallImage, 8);
+            if(strpos($this->smallImage, 'spotify:') === 0) {
+                return 'https://i.scdn.co/image/'. substr($this->smallImage, 8);
             }
             
-            return \CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['url'].\CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(\CharlotteDunois\Yasmin\HTTP\APIEndpoints::CDN['appassets'], $this->activity->applicationID, $this->smallImage).(!empty($size) ? '?size='.$size : '');
+            return APIEndpoints::CDN['url']. APIEndpoints::format(APIEndpoints::CDN['appassets'], $this->activity->applicationID, $this->smallImage).(!empty($size) ? '?size='.$size : '');
         }
         
         return null;

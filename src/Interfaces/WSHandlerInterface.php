@@ -9,19 +9,25 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSHandler;
+
 /**
  * WS Handler interface.
  * @internal
  */
 interface WSHandlerInterface {
-    /**
-     * Constructor.
-     */
-    function __construct(\CharlotteDunois\Yasmin\WebSocket\WSHandler $wshandler);
-    
-    /**
-     * Handles packets.
-     * @return void
-     */
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $packet): void;
+	/**
+	 * Constructor.
+	 * @param WSHandler $wshandler
+	 */
+    function __construct(WSHandler $wshandler);
+
+	/**
+	 * Handles packets.
+	 * @param WSConnection $ws
+	 * @param $packet
+	 * @return void
+	 */
+    function handle(WSConnection $ws, $packet): void;
 }

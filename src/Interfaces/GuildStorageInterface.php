@@ -9,13 +9,16 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Models\Guild;
+use InvalidArgumentException;
+
 /**
  * Something all guild storages implement. The storage also is used as factory.
  */
 interface GuildStorageInterface extends StorageInterface {
     /**
      * Returns the current element. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Guild
+     * @return Guild
      */
     function current();
     
@@ -27,13 +30,13 @@ interface GuildStorageInterface extends StorageInterface {
     
     /**
      * Advances the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Guild|false
+     * @return Guild|false
      */
     function next();
     
     /**
      * Resets the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Guild|false
+     * @return Guild|false
      */
     function rewind();
     
@@ -45,15 +48,15 @@ interface GuildStorageInterface extends StorageInterface {
     
     /**
      * Returns all items.
-     * @return \CharlotteDunois\Yasmin\Models\Guild[]
+     * @return Guild[]
      */
     function all();
     
     /**
      * Resolves given data to a guild.
-     * @param \CharlotteDunois\Yasmin\Models\Guild|string|int  $guild  string/int = guild ID
-     * @return \CharlotteDunois\Yasmin\Models\Guild
-     * @throws \InvalidArgumentException
+     * @param Guild|string|int  $guild  string/int = guild ID
+     * @return Guild
+     * @throws InvalidArgumentException
      */
     function resolve($guild);
     
@@ -61,24 +64,24 @@ interface GuildStorageInterface extends StorageInterface {
      * Determines if a given key exists in the collection.
      * @param string  $key
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
     */
     function has($key);
     
     /**
      * Returns the item at a given key. If the key does not exist, null is returned.
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\Guild|null
-     * @throws \InvalidArgumentException
+     * @return Guild|null
+     * @throws InvalidArgumentException
     */
     function get($key);
     
     /**
      * Sets a key-value pair.
      * @param string                                $key
-     * @param \CharlotteDunois\Yasmin\Models\Guild  $value
+     * @param Guild  $value
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function set($key, $value);
     
@@ -86,7 +89,7 @@ interface GuildStorageInterface extends StorageInterface {
      * Factory to create (or retrieve existing) guilds.
      * @param array     $data
      * @param int|null  $shardID
-     * @return \CharlotteDunois\Yasmin\Models\Guild
+     * @return Guild
      * @internal
      */
     function factory(array $data, ?int $shardID = null);

@@ -9,12 +9,20 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use RuntimeException;
+use Serializable;
+use function get_object_vars;
+use function property_exists;
+use function serialize;
+
 /**
  * Represents a shard.
  *
  * @property int  $id  The shard ID.
  */
-class Shard extends ClientBase implements \Serializable {
+class Shard extends ClientBase implements Serializable {
     /**
      * The shard ID.
      * @var int
@@ -23,14 +31,17 @@ class Shard extends ClientBase implements \Serializable {
     
     /**
      * The websocket connection of this shard.
-     * @var \CharlotteDunois\Yasmin\WebSocket\WSConnection
+     * @var WSConnection
      */
     protected $ws;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, int $shardID, \CharlotteDunois\Yasmin\WebSocket\WSConnection $connection) {
+
+	/**
+	 * @param Client $client
+	 * @param int $shardID
+	 * @param WSConnection $connection
+	 * @internal
+	 */
+    function __construct(Client $client, int $shardID, WSConnection $connection) {
         parent::__construct($client);
         
         $this->id = $shardID;
@@ -40,11 +51,11 @@ class Shard extends ClientBase implements \Serializable {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -56,10 +67,10 @@ class Shard extends ClientBase implements \Serializable {
      * @internal
      */
     function serialize() {
-        $vars = \get_object_vars($this);
+        $vars = get_object_vars($this);
         unset($vars['client'], $vars['ws']);
         
-        return \serialize($vars);
+        return serialize($vars);
     }
     
     /**

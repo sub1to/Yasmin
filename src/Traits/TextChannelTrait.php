@@ -9,13 +9,36 @@
 
 namespace CharlotteDunois\Yasmin\Traits;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Models\Message;
+use CharlotteDunois\Yasmin\Models\User;
+use CharlotteDunois\Yasmin\Utils\Collector;
+use CharlotteDunois\Yasmin\Utils\MessageHelpers;
+use CharlotteDunois\Yasmin\Utils\Snowflake;
+use InvalidArgumentException;
+use OutOfBoundsException;
+use RangeException;
+use React\EventLoop\TimerInterface;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use Throwable;
+use function array_filter;
+use function array_map;
+use function array_merge;
+use function count;
+use function is_array;
+use function is_numeric;
+use function React\Promise\resolve;
+use function str_replace;
+use function time;
+
 /**
  * The text based channel trait.
  */
 trait TextChannelTrait {
     /**
      * Collection of all typing users (contains arrays).
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $typings;
     
@@ -60,42 +83,42 @@ trait TextChannelTrait {
     
     /**
      * Deletes multiple messages at once. Resolves with $this.
-     * @param \CharlotteDunois\Collect\Collection|array|int  $messages           A collection or array of Message instances, or the number of messages to delete (2-100).
+     * @param Collection|array|int  $messages           A collection or array of Message instances, or the number of messages to delete (2-100).
      * @param string                                         $reason
      * @param bool                                           $filterOldMessages  Automatically filters out too old messages (14 days).
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      */
     function bulkDelete($messages, string $reason = '', bool $filterOldMessages = false) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($messages, $reason, $filterOldMessages) {
-            if(\is_numeric($messages)) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($messages, $reason, $filterOldMessages) {
+            if(is_numeric($messages)) {
                 $messages = $this->fetchMessages(array('limit' => (int) $messages));
             } else {
-                $messages = \React\Promise\resolve($messages);
+                $messages = resolve($messages);
             }
             
             $messages->done(function ($messages) use ($reason, $filterOldMessages, $resolve, $reject) {
-                if($messages instanceof \CharlotteDunois\Collect\Collection) {
+                if($messages instanceof Collection) {
                     $messages = $messages->all();
                 }
                 
                 if($filterOldMessages) {
-                    $messages = \array_filter($messages, function ($message) {
-                        if($message instanceof \CharlotteDunois\Yasmin\Models\Message) {
+                    $messages = array_filter($messages, function ($message) {
+                        if($message instanceof Message) {
                             $timestamp = $message->createdTimestamp;
                         } else {
-                            $timestamp = (int) \CharlotteDunois\Yasmin\Utils\Snowflake::deconstruct($message)->timestamp;
+                            $timestamp = (int) Snowflake::deconstruct($message)->timestamp;
                         }
                         
-                        return ((\time() - $timestamp) < 1209600);
+                        return ((time() - $timestamp) < 1209600);
                     });
                 }
                 
-                $messages = \array_map(function ($message) {
+                $messages = array_map(function ($message) {
                     return $message->id;
                 }, $messages);
                 
-                if(\count($messages) < 2 || \count($messages) > 100) {
-                    return $reject(new \InvalidArgumentException('Unable to bulk delete less than 2 or more than 100 messages'));
+                if(count($messages) < 2 || count($messages) > 100) {
+                    return $reject(new InvalidArgumentException('Unable to bulk delete less than 2 or more than 100 messages'));
                 }
                 
                 $this->client->apimanager()->endpoints->channel->bulkDeleteMessages($this->id, $messages, $reason)->done(function () use ($resolve) {
@@ -120,32 +143,32 @@ trait TextChannelTrait {
      *
      * @param callable  $filter   The filter to only collect desired messages. Signature: `function (Message $message): bool`
      * @param array     $options  The collector options.
-     * @return \React\Promise\ExtendedPromiseInterface  This promise is cancellable.
-     * @throws \RangeException          The exception the promise gets rejected with, if collecting times out.
-     * @throws \OutOfBoundsException    The exception the promise gets rejected with, if the promise gets cancelled.
+     * @return ExtendedPromiseInterface  This promise is cancellable.
+     * @throws RangeException          The exception the promise gets rejected with, if collecting times out.
+     * @throws OutOfBoundsException    The exception the promise gets rejected with, if the promise gets cancelled.
      * @see \CharlotteDunois\Yasmin\Models\Message
      * @see \CharlotteDunois\Yasmin\Utils\Collector
      */
     function collectMessages(callable $filter, array $options = array()) {
-        $mhandler = function (\CharlotteDunois\Yasmin\Models\Message $message) {
+        $mhandler = function (Message $message) {
             return array($message->id, $message);
         };
-        $mfilter = function (\CharlotteDunois\Yasmin\Models\Message $message) use ($filter) {
+        $mfilter = function (Message $message) use ($filter) {
             return ($message->channel->getId() === $this->id && $filter($message));
         };
         
-        $collector = new \CharlotteDunois\Yasmin\Utils\Collector($this->client, 'message', $mhandler, $mfilter, $options);
+        $collector = new Collector($this->client, 'message', $mhandler, $mfilter, $options);
         return $collector->collect();
     }
     
     /**
      * Fetches a specific message using the ID. Resolves with an instance of Message.
      * @param string  $id
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Message
      */
     function fetchMessage(string $id) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($id) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($id) {
             $this->client->apimanager()->endpoints->channel->getChannelMessage($this->id, $id)->done(function ($data) use ($resolve) {
                 $message = $this->_createMessage($data);
                 $resolve($message);
@@ -168,13 +191,13 @@ trait TextChannelTrait {
      * ```
      *
      * @param array  $options
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Message
      */
     function fetchMessages(array $options = array()) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($options) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($options) {
             $this->client->apimanager()->endpoints->channel->getChannelMessages($this->id, $options)->done(function ($data) use ($resolve) {
-                $collect = new \CharlotteDunois\Collect\Collection();
+                $collect = new Collection();
                 
                 foreach($data as $m) {
                     $message = $this->_createMessage($m);
@@ -188,7 +211,7 @@ trait TextChannelTrait {
     
     /**
      * Gets the last message in this channel if cached, or null.
-     * @return \CharlotteDunois\Yasmin\Models\Message|null
+     * @return Message|null
      */
     function getLastMessage() {
         if(!empty($this->lastMessageID) && $this->messages->has($this->lastMessageID)) {
@@ -223,12 +246,12 @@ trait TextChannelTrait {
      *
      * @param string  $content  The message content.
      * @param array   $options  Any message options.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Message
      */
     function send(string $content, array $options = array()) {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($content, $options) {
-            \CharlotteDunois\Yasmin\Utils\MessageHelpers::resolveMessageOptionsFiles($options)->done(function ($files) use ($content, $options, $resolve, $reject) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($content, $options) {
+            MessageHelpers::resolveMessageOptionsFiles($options)->done(function ($files) use ($content, $options, $resolve, $reject) {
                 $msg = array(
                     'content' => $content
                 );
@@ -243,7 +266,7 @@ trait TextChannelTrait {
                 
                 $disableEveryone = (isset($options['disableEveryone']) ? ((bool) $options['disableEveryone']) : $this->client->getOption('disableEveryone', true));
                 if($disableEveryone) {
-                    $msg['content'] = \str_replace(array('@everyone', '@here'), array("@\u{200b}everyone", "@\u{200b}here"), $msg['content']);
+                    $msg['content'] = str_replace(array('@everyone', '@here'), array("@\u{200b}everyone", "@\u{200b}here"), $msg['content']);
                 }
                 
                 if(!empty($options['tts'])) {
@@ -251,12 +274,12 @@ trait TextChannelTrait {
                 }
                 
                 if(isset($options['split'])) {
-                    $options['split'] = $split = \array_merge(\CharlotteDunois\Yasmin\Models\Message::DEFAULT_SPLIT_OPTIONS, (\is_array($options['split']) ? $options['split'] : array()));
-                    $messages = \CharlotteDunois\Yasmin\Utils\MessageHelpers::splitMessage($msg['content'], $options['split']);
+                    $options['split'] = $split = array_merge(Message::DEFAULT_SPLIT_OPTIONS, (is_array($options['split']) ? $options['split'] : array()));
+                    $messages = MessageHelpers::splitMessage($msg['content'], $options['split']);
                     
-                    if(\count($messages) > 1) {
-                        $collection = new \CharlotteDunois\Collect\Collection();
-                        $i = \count($messages);
+                    if(count($messages) > 1) {
+                        $collection = new Collection();
+                        $i = count($messages);
                         
                         $chunkedSend = function ($msg, $files = null) use ($collection, $reject) {
                             return $this->client->apimanager()->endpoints->channel->createMessage($this->id, $msg, ($files ?? array()))->then(function ($response) use ($collection) {
@@ -265,7 +288,7 @@ trait TextChannelTrait {
                             }, $reject);
                         };
                         
-                        $promise = \React\Promise\resolve();
+                        $promise = resolve();
                         foreach($messages as $key => $message) {
                             $promise = $promise->then(function () use ($chunkedSend, &$files, $key, $i, $message, &$msg, $split) {
                                 $fs = null;
@@ -308,7 +331,7 @@ trait TextChannelTrait {
         if($this->typingTriggered['count'] === 0) {
             $fn = function () {
                 $this->client->apimanager()->endpoints->channel->triggerChannelTyping($this->id)->done(function () {
-                    $this->_updateTyping($this->client->user, \time());
+                    $this->_updateTyping($this->client->user, time());
                 }, function () {
                     $this->_updateTyping($this->client->user);
                     $this->typingTriggered['count'] = 0;
@@ -360,55 +383,56 @@ trait TextChannelTrait {
     
     /**
      * Determines whether the given user is typing in this channel or not.
-     * @param \CharlotteDunois\Yasmin\Models\User  $user
+     * @param User  $user
      * @return bool
      */
-    function isTyping(\CharlotteDunois\Yasmin\Models\User $user) {
+    function isTyping(User $user) {
         return $this->typings->has($user->id);
     }
     
     /**
      * Determines whether how long the given user has been typing in this channel. Returns -1 if the user is not typing.
-     * @param \CharlotteDunois\Yasmin\Models\User  $user
+     * @param User  $user
      * @return int
      */
-    function isTypingSince(\CharlotteDunois\Yasmin\Models\User $user) {
+    function isTypingSince(User $user) {
         if(!$this->isTyping($user)) {
             return -1;
         }
         
-        return (\time() - $this->typings->get($user->id)['timestamp']);
+        return (time() - $this->typings->get($user->id)['timestamp']);
     }
-    
-    /**
-     * @param array  $message
-     * @return \CharlotteDunois\Yasmin\Models\Message
-     * @internal
-     */
+
+	/**
+	 * @param array $message
+	 * @return Message
+	 * @throws Throwable
+	 * @internal
+	 */
     function _createMessage(array $message) {
         if($this->messages->has($message['id'])) {
             return $this->messages->get($message['id']);
         }
         
-        $msg = new \CharlotteDunois\Yasmin\Models\Message($this->client, $this, $message);
+        $msg = new Message($this->client, $this, $message);
         $this->messages->set($msg->id, $msg);
         return $msg;
     }
     
     /**
-     * @param \CharlotteDunois\Yasmin\Models\User  $user
+     * @param User  $user
      * @param int|null                             $timestamp
      * @return bool
      * @internal
      */
-    function _updateTyping(\CharlotteDunois\Yasmin\Models\User $user, ?int $timestamp = null) {
+    function _updateTyping(User $user, ?int $timestamp = null) {
         if($timestamp === null) {
             $this->typings->delete($user->id);
             return false;
         }
         
         $typing = $this->typings->get($user->id);
-        if($typing && ($typing['timer'] instanceof \React\EventLoop\Timer\TimerInterface || $typing['timer'] instanceof \React\EventLoop\TimerInterface)) {
+        if($typing && ($typing['timer'] instanceof \React\EventLoop\Timer\TimerInterface || $typing['timer'] instanceof TimerInterface)) {
             $this->client->cancelTimer($typing['timer']);
         }
         

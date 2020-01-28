@@ -9,6 +9,13 @@
 
 namespace CharlotteDunois\Yasmin\Utils;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Events\EventEmitterInterface;
+use OutOfBoundsException;
+use RangeException;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\PromiseInterface;
+
 /**
  * Event Helper methods.
  */
@@ -23,24 +30,24 @@ class EventHelpers {
      * )
      * ```
      *
-     * @param \CharlotteDunois\Events\EventEmitterInterface  $emitter
+     * @param EventEmitterInterface  $emitter
      * @param string                                         $event
      * @param callable|null                                  $filter
      * @param array                                          $options
-     * @return \React\Promise\ExtendedPromiseInterface  This promise is cancellable.
-     * @throws \RangeException          The exception the promise gets rejected with, if waiting times out.
-     * @throws \OutOfBoundsException    The exception the promise gets rejected with, if the promise gets cancelled.
+     * @return ExtendedPromiseInterface|PromiseInterface  This promise is cancellable.
+     * @throws RangeException          The exception the promise gets rejected with, if waiting times out.
+     * @throws OutOfBoundsException    The exception the promise gets rejected with, if the promise gets cancelled.
      */
     static function waitForEvent($emitter, string $event, ?callable $filter = null, array $options = array()) {
         $options['max'] = 1;
         $options['time'] = $options['time'] ?? 0;
         $options['errors'] = array('max');
         
-        $collector = new \CharlotteDunois\Yasmin\Utils\Collector($emitter, $event, function (...$a) {
+        $collector = new Collector($emitter, $event, function (...$a) {
             return [ 0, $a ];
         }, $filter, $options);
         
-        return $collector->collect()->then(function (\CharlotteDunois\Collect\Collection $bucket) {
+        return $collector->collect()->then(function (Collection $bucket) {
             return $bucket->first();
         });
     }

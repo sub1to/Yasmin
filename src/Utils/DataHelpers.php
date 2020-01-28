@@ -9,6 +9,19 @@
 
 namespace CharlotteDunois\Yasmin\Utils;
 
+use DateTime;
+use DateTimeZone;
+use Exception;
+use InvalidArgumentException;
+use function base64_encode;
+use function count;
+use function date_default_timezone_get;
+use function getimagesizefromstring;
+use function hexdec;
+use function is_array;
+use function is_int;
+use function var_export;
+
 /**
  * Data Helper methods.
  */
@@ -17,47 +30,48 @@ class DataHelpers {
      * Resolves a color to an integer.
      * @param array|int|string  $color
      * @return int
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     static function resolveColor($color) {
-        if(\is_int($color)) {
+        if(is_int($color)) {
             return $color;
         }
         
-        if(!\is_array($color)) {
-            return \hexdec(((string) $color));
+        if(!is_array($color)) {
+            return hexdec(((string) $color));
         }
         
-        if(\count($color) < 1) {
-            throw new \InvalidArgumentException('Color "'.\var_export($color, true).'" is not resolvable');
+        if(count($color) < 1) {
+            throw new InvalidArgumentException('Color "'. var_export($color, true).'" is not resolvable');
         }
         
         return (($color[0] << 16) + (($color[1] ?? 0) << 8) + ($color[2] ?? 0));
     }
-    
-    /**
-     * Makes a DateTime instance from an UNIX timestamp and applies the default timezone.
-     * @param int $timestamp
-     * @return \DateTime
-     */
+
+	/**
+	 * Makes a DateTime instance from an UNIX timestamp and applies the default timezone.
+	 * @param int $timestamp
+	 * @return DateTime
+	 * @throws Exception
+	 */
     static function makeDateTime(int $timestamp) {
-        $zone = new \DateTimeZone(\date_default_timezone_get());
-        return (new \DateTime('@'.$timestamp))->setTimezone($zone);
+        $zone = new DateTimeZone(date_default_timezone_get());
+        return (new DateTime('@'.$timestamp))->setTimezone($zone);
     }
     
     /**
      * Turns input into a base64-encoded data URI.
      * @param string  $data
      * @return string
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     static function makeBase64URI(string $data) {
-        $img = \getimagesizefromstring($data);
+        $img = getimagesizefromstring($data);
         if(!$img) {
-            throw new \InvalidArgumentException('Bad input data');
+            throw new InvalidArgumentException('Bad input data');
         }
         
-        return 'data:'.$img['mime'].';base64,'.\base64_encode($data);
+        return 'data:'.$img['mime'].';base64,'. base64_encode($data);
     }
     
     /**
@@ -65,7 +79,7 @@ class DataHelpers {
      * @param mixed   &$variable
      * @param string  $type
      * @return mixed|null
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     static function typecastVariable($variable, string $type) {
         if($variable === null) {
@@ -89,7 +103,7 @@ class DataHelpers {
                 $variable = (string) $variable;
             break;
             default:
-                throw new \InvalidArgumentException('Unsupported type "'.$type.'"');
+                throw new InvalidArgumentException('Unsupported type "'.$type.'"');
             break;
         }
         
@@ -117,7 +131,7 @@ class DataHelpers {
                 continue;
             }
             
-            if(\is_array($options[$key])) {
+            if(is_array($options[$key])) {
                 if(!empty($options[$key]['parse'])) {
                     $call = $options[$key]['parse'];
                     $val = $call($val);

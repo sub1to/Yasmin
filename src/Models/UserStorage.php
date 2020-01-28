@@ -9,20 +9,33 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Interfaces\UserStorageInterface;
+use InvalidArgumentException;
+use React\EventLoop\Timer\TimerInterface;
+use function array_keys;
+use function array_merge;
+use function array_unique;
+use function in_array;
+use function is_int;
+use function is_string;
+
 /**
  * User Storage to store and cache users, which utlizies Collection.
  */
-class UserStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\UserStorageInterface {
+class UserStorage extends Storage implements UserStorageInterface {
     /**
      * The sweep timer, or null.
-     * @var \React\EventLoop\TimerInterface|\React\EventLoop\Timer\TimerInterface|null
+     * @var \React\EventLoop\TimerInterface|TimerInterface|null
      */
     protected $timer;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $data = null) {
+
+	/**
+	 * @param Client $client
+	 * @param array|null $data
+	 * @internal
+	 */
+    function __construct(Client $client, array $data = null) {
         parent::__construct($client, $data);
         
         $inv = (int) $this->client->getOption('userSweepInterval', 600);
@@ -35,34 +48,34 @@ class UserStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\
     
     /**
      * Resolves given data to an user.
-     * @param \CharlotteDunois\Yasmin\Models\User|\CharlotteDunois\Yasmin\Models\GuildMember|string|int  $user  string/int = user ID
-     * @return \CharlotteDunois\Yasmin\Models\User
-     * @throws \InvalidArgumentException
+     * @param User|GuildMember|string|int  $user  string/int = user ID
+     * @return User
+     * @throws InvalidArgumentException
      */
     function resolve($user) {
-        if($user instanceof \CharlotteDunois\Yasmin\Models\User) {
+        if($user instanceof User) {
             return $user;
         }
         
-        if($user instanceof \CharlotteDunois\Yasmin\Models\GuildMember) {
+        if($user instanceof GuildMember) {
             return $user->user;
         }
         
-        if(\is_int($user)) {
+        if(is_int($user)) {
             $user = (string) $user;
         }
         
-        if(\is_string($user) && parent::has($user)) {
+        if(is_string($user) && parent::has($user)) {
             return parent::get($user);
         }
         
-        throw new \InvalidArgumentException('Unable to resolve unknown user');
+        throw new InvalidArgumentException('Unable to resolve unknown user');
     }
     
     /**
      * Patches an user (retrieves the user if the user exists), returns null if only the ID is in the array, or creates an user.
      * @param array  $user
-     * @return \CharlotteDunois\Yasmin\Models\User|null
+     * @return User|null
      */
     function patch(array $user) {
         if(parent::has($user['id'])) {
@@ -88,7 +101,7 @@ class UserStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\
     /**
      * {@inheritdoc}
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\User|null
+     * @return User|null
      */
     function get($key) {
         return parent::get($key);
@@ -97,7 +110,7 @@ class UserStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\
     /**
      * {@inheritdoc}
      * @param string                               $key
-     * @param \CharlotteDunois\Yasmin\Models\User  $value
+     * @param User $value
      * @return $this
      */
     function set($key, $value) {
@@ -127,7 +140,7 @@ class UserStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\
      * Factory to create (or retrieve existing) users.
      * @param array  $data
      * @param bool   $userFetched
-     * @return \CharlotteDunois\Yasmin\Models\User
+     * @return User
      * @internal
      */
     function factory(array $data, bool $userFetched = false) {
@@ -137,7 +150,7 @@ class UserStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\
             return $user;
         }
         
-        $user = new \CharlotteDunois\Yasmin\Models\User($this->client, $data, false, $userFetched);
+        $user = new User($this->client, $data, false, $userFetched);
         $this->set($user->id, $user);
         
         return $user;
@@ -148,13 +161,13 @@ class UserStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\
      * @return int
      */
     function sweep() {
-        $members = \array_unique($this->client->guilds->reduce(function ($carry, $g) {
-            return \array_merge($carry, \array_keys($g->members->all()));
+        $members = array_unique($this->client->guilds->reduce(function ($carry, $g) {
+            return array_merge($carry, array_keys($g->members->all()));
         }, array()));
         
         $amount = 0;
         foreach($this->data as $key => $val) {
-            if($val->id !== $this->client->user->id && !$val->userFetched && !\in_array($key, $members, true)) {
+            if($val->id !== $this->client->user->id && !$val->userFetched && !in_array($key, $members, true)) {
                 $this->client->presences->delete($key);
                 $this->delete($key);
                 

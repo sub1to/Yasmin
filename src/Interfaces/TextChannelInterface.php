@@ -9,10 +9,16 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Models\Message;
+use CharlotteDunois\Yasmin\Models\User;
+use OutOfBoundsException;
+use RangeException;
+use React\Promise\ExtendedPromiseInterface;
+
 /**
  * Something all text channels implement.
  *
- * @method \CharlotteDunois\Yasmin\Interfaces\MessageStorageInterface  getMessages()       Gets the storage with all cached messages.
+ * @method MessageStorageInterface  getMessages()       Gets the storage with all cached messages.
  * @method string                                                      getLastMessageID()  Gets the ID of the last sent message in this channel.
  */
 interface TextChannelInterface extends ChannelInterface {
@@ -31,9 +37,9 @@ interface TextChannelInterface extends ChannelInterface {
      *
      * @param callable  $filter
      * @param array     $options
-     * @return \React\Promise\ExtendedPromiseInterface  This promise is cancellable.
-     * @throws \RangeException          The exception the promise gets rejected with, if waiting times out.
-     * @throws \OutOfBoundsException    The exception the promise gets rejected with, if the promise gets cancelled.
+     * @return ExtendedPromiseInterface  This promise is cancellable.
+     * @throws RangeException          The exception the promise gets rejected with, if waiting times out.
+     * @throws OutOfBoundsException    The exception the promise gets rejected with, if the promise gets cancelled.
      * @see \CharlotteDunois\Yasmin\Models\Message
      * @see \CharlotteDunois\Yasmin\Utils\Collector
      */
@@ -42,7 +48,7 @@ interface TextChannelInterface extends ChannelInterface {
     /**
      * Fetches a specific message using the ID. Resolves with an instance of Message.
      * @param string  $id
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Message
      */
     function fetchMessage(string $id);
@@ -62,7 +68,7 @@ interface TextChannelInterface extends ChannelInterface {
      * ```
      *
      * @param array  $options
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Message
      */
     function fetchMessages(array $options = array());
@@ -92,7 +98,7 @@ interface TextChannelInterface extends ChannelInterface {
      *
      * @param string  $content
      * @param array   $options
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\Message
      */
     function send(string $content, array $options = array());
@@ -118,23 +124,23 @@ interface TextChannelInterface extends ChannelInterface {
     
     /**
      * Determines whether the given user is typing in this channel or not.
-     * @param \CharlotteDunois\Yasmin\Models\User  $user
+     * @param User  $user
      * @return bool
      */
-    function isTyping(\CharlotteDunois\Yasmin\Models\User $user);
+    function isTyping(User $user);
     
     /**
      * @param array  $message
-     * @return \CharlotteDunois\Yasmin\Models\Message
+     * @return Message
      * @internal
      */
     function _createMessage(array $message);
     
     /**
-     * @param \CharlotteDunois\Yasmin\Models\User  $user
+     * @param User  $user
      * @param int|null                             $timestamp
      * @return bool
      * @internal
      */
-    function _updateTyping(\CharlotteDunois\Yasmin\Models\User $user, ?int $timestamp = null);
+    function _updateTyping(User $user, ?int $timestamp = null);
 }

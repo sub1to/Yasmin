@@ -9,6 +9,9 @@
 
 namespace CharlotteDunois\Yasmin\HTTP\Endpoints;
 
+use CharlotteDunois\Yasmin\HTTP\APIEndpoints;
+use CharlotteDunois\Yasmin\HTTP\APIManager;
+
 /**
  * Handles the API endpoints "User".
  * @internal
@@ -33,60 +36,60 @@ class User {
     );
     
     /**
-     * @var \CharlotteDunois\Yasmin\HTTP\APIManager
+     * @var APIManager
      */
     protected $api;
     
     /**
      * Constructor.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIManager $api
+     * @param APIManager $api
      */
-    function __construct(\CharlotteDunois\Yasmin\HTTP\APIManager $api) {
+    function __construct(APIManager $api) {
         $this->api = $api;
     }
     
     function getCurrentUser() {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['get']);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['get']);
         return $this->api->makeRequest('GET', $url, array());
     }
     
     function getUser(string $userid) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['get'], $userid);
+        $url = APIEndpoints::format(self::ENDPOINTS['get'], $userid);
         return $this->api->makeRequest('GET', $url, array());
     }
     
     function modifyCurrentUser(array $options) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['modify']);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['modify']);
         return $this->api->makeRequest('PATCH', $url, array('data' => $options));
     }
     
     function getCurrentUserGuilds() {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['guilds']);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['guilds']);
         return $this->api->makeRequest('GET', $url, array());
     }
     
     function leaveUserGuild(string $guildid) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['leaveGuild'], $guildid);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['leaveGuild'], $guildid);
         return $this->api->makeRequest('DELETE', $url, array());
     }
     
     function getUserDMs() {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['dms']);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['dms']);
         return $this->api->makeRequest('GET', $url, array());
     }
     
     function createUserDM(string $recipientid) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['createDM']);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['createDM']);
         return $this->api->makeRequest('POST', $url, array('data' => array('recipient_id' => $recipientid)));
     }
     
     function createGroupDM(array $accessTokens, array $nicks) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['createGroupDM']);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['createGroupDM']);
         return $this->api->makeRequest('POST', $url, array('data' => array('access_tokens' => $accessTokens, 'nicks' => $nicks)));
     }
     
     function getUserConnections(string $accessToken) {
-        $url = \CharlotteDunois\Yasmin\HTTP\APIEndpoints::format(self::ENDPOINTS['current']['connections']);
+        $url = APIEndpoints::format(self::ENDPOINTS['current']['connections']);
         return $this->api->makeRequest('GET', $url, array('auth' => 'Bearer '.$accessToken));
     }
 }

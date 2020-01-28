@@ -1,5 +1,5 @@
 {
-    "name": "charlottedunois/yasmin",
+    "name": "sub1to/yasmin",
     "description": "Yasmin is a Discord API library for PHP.",
     "type": "library",
     "license": "Apache-2.0",
@@ -7,6 +7,9 @@
         {
             "name": "CharlotteDunois",
             "email": "github@charuru.moe"
+        },
+        {
+            "name": "sub1to"
         }
     ],
     "minimum-stability": "stable",
@@ -20,9 +23,9 @@
         "ext-openssl": "*",
         "ext-pcre": "*",
         "ext-zlib": "*",
-        "charlottedunois/collection": "^0.2.0",
-        "charlottedunois/eventemitter": "^0.1.5",
-        "charlottedunois/validator": "^0.3.0",
+        "sub1to/collection": "^0.2.0",
+        "sub1to/eventemitter": "^0.1.5",
+        "sub1to/validator": "^0.3.0",
         "clue/buzz-react": "^2.6.0",
         "psr/http-message": "^1.0",
         "ratchet/pawl": "^0.3.1",
@@ -32,8 +35,7 @@
         "ringcentral/psr7": "^1.2"
     },
     "require-dev": {
-        "charlottedunois/athena": "^0.1.1|dev-master",
-        "charlottedunois/kimberly": "^0.1.2|dev-master"
+        "sub1to/athena": "^0.1.1|dev-master"
     },
     "suggest": {
         "charlottedunois/athena": "For Redis-backed ratelimit bucket",
@@ -43,5 +45,23 @@
         "psr-4": {
             "CharlotteDunois\\Yasmin\\": "src"
         }
-    }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "git@github.com:sub1to/collection"
+        },
+        {
+            "type": "vcs",
+            "url": "git@github.com:sub1to/eventemitter"
+        },
+        {
+            "type": "vcs",
+            "url": "git@github.com:sub1to/validator"
+        },
+        {
+            "type": "vcs",
+            "url": "git@github.com:sub1to/Athena"
+        }
+    ]
 }

@@ -9,25 +9,33 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Client;
+use InvalidArgumentException;
+use React\Promise\ExtendedPromiseInterface;
+use React\Promise\Promise;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents a message reaction.
  *
- * @property \CharlotteDunois\Yasmin\Models\Emoji    $emoji     The emoji this message reaction is for.
+ * @property Emoji $emoji     The emoji this message reaction is for.
  * @property int                                     $count     Times this emoji has been reacted.
  * @property bool                                    $me        Whether the current user has reacted using this emoji.
- * @property \CharlotteDunois\Yasmin\Models\Message  $message   The message this reaction belongs to.
- * @property \CharlotteDunois\Collect\Collection     $users     The users that have given this reaction, mapped by their ID.
+ * @property Message $message   The message this reaction belongs to.
+ * @property Collection     $users     The users that have given this reaction, mapped by their ID.
  */
 class MessageReaction extends ClientBase {
     /**
      * The message this reaction belongs to.
-     * @var \CharlotteDunois\Yasmin\Models\Message
+     * @var Message
      */
     protected $message;
     
     /**
      * The emoji this message reaction is for.
-     * @var \CharlotteDunois\Yasmin\Models\Emoji
+     * @var Emoji
      */
     protected $emoji;
     
@@ -45,31 +53,35 @@ class MessageReaction extends ClientBase {
     
     /**
      * The users that have given this reaction, mapped by their ID.
-     * @var \CharlotteDunois\Collect\Collection
+     * @var Collection
      */
     protected $users;
-    
-    /**
-     * @internal
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, \CharlotteDunois\Yasmin\Models\Message $message, \CharlotteDunois\Yasmin\Models\Emoji $emoji, array $reaction) {
+
+	/**
+	 * @param Client $client
+	 * @param Message $message
+	 * @param Emoji $emoji
+	 * @param array $reaction
+	 * @internal
+	 */
+    function __construct(Client $client, Message $message, Emoji $emoji, array $reaction) {
         parent::__construct($client);
         $this->message = $message;
         $this->emoji = $emoji;
         
         $this->count = (int) $reaction['count'];
         $this->me = (bool) $reaction['me'];
-        $this->users = new \CharlotteDunois\Collect\Collection();
+        $this->users = new Collection();
     }
     
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         
@@ -81,11 +93,11 @@ class MessageReaction extends ClientBase {
      * @param int     $limit   The maximum amount of users to fetch, defaults to 100.
      * @param string  $before  Limit fetching users to those with an ID smaller than the given ID.
      * @param string  $after   Limit fetching users to those with an ID greater than the given ID.
-     * @return \React\Promise\ExtendedPromiseInterface
+     * @return ExtendedPromiseInterface
      * @see \CharlotteDunois\Yasmin\Models\User
      */
     function fetchUsers(int $limit = 100, string $before = '', string $after = '') {
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($limit, $before, $after) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($limit, $before, $after) {
             $query = array('limit' => $limit);
             
             if(!empty($before)) {
@@ -111,16 +123,16 @@ class MessageReaction extends ClientBase {
     
     /**
      * Removes an user from the reaction. Resolves with $this.
-     * @param \CharlotteDunois\Yasmin\Models\User|string  $user  Defaults to the client user.
-     * @return \React\Promise\ExtendedPromiseInterface
-     * @throws \InvalidArgumentException
+     * @param User|string  $user  Defaults to the client user.
+     * @return ExtendedPromiseInterface
+     * @throws InvalidArgumentException
      */
     function remove($user = null) {
         if($user !== null) {
             $user = $this->client->users->resolve($user);
         }
         
-        return (new \React\Promise\Promise(function (callable $resolve, callable $reject) use ($user) {
+        return (new Promise(function (callable $resolve, callable $reject) use ($user) {
             $this->client->apimanager()->endpoints->channel
                 ->deleteMessageUserReaction($this->message->channel->getId(), $this->message->id, $this->emoji->identifier, ($user !== null ? $user->id : '@me'))
                 ->done(function () use ($resolve) {

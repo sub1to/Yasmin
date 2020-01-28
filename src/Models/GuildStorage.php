@@ -9,30 +9,35 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Interfaces\GuildStorageInterface;
+use InvalidArgumentException;
+use function is_int;
+use function is_string;
+
 /**
  * Guild Storage to store guilds, utilizes Collection.
  */
-class GuildStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces\GuildStorageInterface {
+class GuildStorage extends Storage implements GuildStorageInterface {
     /**
      * Resolves given data to a guild.
-     * @param \CharlotteDunois\Yasmin\Models\Guild|string|int  $guild  string/int = guild ID
-     * @return \CharlotteDunois\Yasmin\Models\Guild
-     * @throws \InvalidArgumentException
+     * @param Guild|string|int  $guild  string/int = guild ID
+     * @return Guild
+     * @throws InvalidArgumentException
      */
     function resolve($guild) {
-        if($guild instanceof \CharlotteDunois\Yasmin\Models\Guild) {
+        if($guild instanceof Guild) {
             return $guild;
         }
         
-        if(\is_int($guild)) {
+        if(is_int($guild)) {
             $guild = (string) $guild;
         }
         
-        if(\is_string($guild) && parent::has($guild)) {
+        if(is_string($guild) && parent::has($guild)) {
             return parent::get($guild);
         }
         
-        throw new \InvalidArgumentException('Unable to resolve unknown guild');
+        throw new InvalidArgumentException('Unable to resolve unknown guild');
     }
     
     /**
@@ -47,7 +52,7 @@ class GuildStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
     /**
      * {@inheritdoc}
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\Guild|null
+     * @return Guild|null
      */
     function get($key) {
         return parent::get($key);
@@ -56,7 +61,7 @@ class GuildStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
     /**
      * {@inheritdoc}
      * @param string                                $key
-     * @param \CharlotteDunois\Yasmin\Models\Guild  $value
+     * @param Guild $value
      * @return $this
      */
     function set($key, $value) {
@@ -82,7 +87,7 @@ class GuildStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
      * Factory to create (or retrieve existing) guilds.
      * @param array     $data
      * @param int|null  $shardID
-     * @return \CharlotteDunois\Yasmin\Models\Guild
+     * @return Guild
      * @internal
      */
     function factory(array $data, ?int $shardID = null) {
@@ -92,7 +97,7 @@ class GuildStorage extends Storage implements \CharlotteDunois\Yasmin\Interfaces
             return $guild;
         }
         
-        $guild = new \CharlotteDunois\Yasmin\Models\Guild($this->client, $data, $shardID);
+        $guild = new Guild($this->client, $data, $shardID);
         $this->set($guild->id, $guild);
         return $guild;
     }

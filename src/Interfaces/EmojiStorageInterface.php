@@ -9,13 +9,17 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Models\Emoji;
+use CharlotteDunois\Yasmin\Models\MessageReaction;
+use InvalidArgumentException;
+
 /**
  * Something all emoji storages implement. The storage also is used as factory.
  */
 interface EmojiStorageInterface extends StorageInterface {
     /**
      * Returns the current element. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Emoji
+     * @return Emoji
      */
     function current();
     
@@ -27,13 +31,13 @@ interface EmojiStorageInterface extends StorageInterface {
     
     /**
      * Advances the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Emoji|false
+     * @return Emoji|false
      */
     function next();
     
     /**
      * Resets the internal pointer. From Iterator interface.
-     * @return \CharlotteDunois\Yasmin\Models\Emoji|false
+     * @return Emoji|false
      */
     function rewind();
     
@@ -45,15 +49,15 @@ interface EmojiStorageInterface extends StorageInterface {
     
     /**
      * Returns all items.
-     * @return \CharlotteDunois\Yasmin\Models\Emoji[]
+     * @return Emoji[]
      */
     function all();
     
     /**
      * Resolves given data to an emoji.
-     * @param \CharlotteDunois\Yasmin\Models\Emoji|\CharlotteDunois\Yasmin\Models\MessageReaction|string|int  $emoji  string/int = emoji ID
-     * @return \CharlotteDunois\Yasmin\Models\Emoji
-     * @throws \InvalidArgumentException
+     * @param Emoji|MessageReaction|string|int  $emoji  string/int = emoji ID
+     * @return Emoji
+     * @throws InvalidArgumentException
      */
     function resolve($emoji);
     
@@ -61,31 +65,31 @@ interface EmojiStorageInterface extends StorageInterface {
      * Determines if a given key exists in the collection.
      * @param string  $key
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
     */
     function has($key);
     
     /**
      * Returns the item at a given key. If the key does not exist, null is returned.
      * @param string  $key
-     * @return \CharlotteDunois\Yasmin\Models\Emoji|null
-     * @throws \InvalidArgumentException
+     * @return Emoji|null
+     * @throws InvalidArgumentException
     */
     function get($key);
     
     /**
      * Sets a key-value pair.
      * @param string                                $key
-     * @param \CharlotteDunois\Yasmin\Models\Emoji  $value
+     * @param Emoji  $value
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function set($key, $value);
     
     /**
      * Factory to create (or retrieve existing) emojis.
      * @param array  $data
-     * @return \CharlotteDunois\Yasmin\Models\Emoji
+     * @return Emoji
      * @internal
      */
     function factory(array $data);

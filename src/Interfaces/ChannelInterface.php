@@ -16,8 +16,9 @@ namespace CharlotteDunois\Yasmin\Interfaces;
  * @method int     getCreatedTimestamp()  Gets the timestamp of when this channel was created.
  */
 interface ChannelInterface {
-    /**
-     * Internally patches the instance.
-     */
+	/**
+	 * Internally patches the instance.
+	 * @param array $data
+	 */
     function _patch(array $data);
 }

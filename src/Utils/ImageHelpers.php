@@ -9,6 +9,8 @@
 
 namespace CharlotteDunois\Yasmin\Utils;
 
+use function strpos;
+
 /**
  * Image Helper utilities.
  */
@@ -19,7 +21,7 @@ class ImageHelpers {
      * @return string  Returns "gif" if the hash begins with "a_", otherwise "png".
      */
     static function getImageExtension(string $image): string {
-        return (\strpos($image, 'a_') === 0 ? 'gif' : 'png');
+        return (strpos($image, 'a_') === 0 ? 'gif' : 'png');
     }
     
     /**

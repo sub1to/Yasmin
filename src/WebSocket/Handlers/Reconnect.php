@@ -9,18 +9,22 @@
 
 namespace CharlotteDunois\Yasmin\WebSocket\Handlers;
 
+use CharlotteDunois\Yasmin\Interfaces\WSHandlerInterface;
+use CharlotteDunois\Yasmin\WebSocket\WSConnection;
+use CharlotteDunois\Yasmin\WebSocket\WSHandler;
+
 /**
  * WS Event handler
  * @internal
  */
-class Reconnect implements \CharlotteDunois\Yasmin\Interfaces\WSHandlerInterface {
+class Reconnect implements WSHandlerInterface {
     protected $wshandler;
     
-    function __construct(\CharlotteDunois\Yasmin\WebSocket\WSHandler $wshandler) {
+    function __construct(WSHandler $wshandler) {
         $this->wshandler = $wshandler;
     }
     
-    function handle(\CharlotteDunois\Yasmin\WebSocket\WSConnection $ws, $packet): void {
+    function handle(WSConnection $ws, $packet): void {
         $ws->reconnect($packet['d']);
     }
 }

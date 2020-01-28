@@ -9,6 +9,11 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\HTTP\APIManager;
+use CharlotteDunois\Yasmin\HTTP\APIRequest;
+use React\Promise\ExtendedPromiseInterface;
+use RuntimeException;
+
 /**
  * This interface defines required methods and their arguments for managing route ratelimits using various systems.<br>
  * The ratelimit bucket queue is always managed in memory (as in belongs to that process), however the ratelimits are distributed to the used system.
@@ -25,11 +30,11 @@ namespace CharlotteDunois\Yasmin\Interfaces;
 interface RatelimitBucketInterface {
     /**
      * Initializes the bucket.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIManager  $api
+     * @param APIManager  $api
      * @param string                                   $endpoint
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
-    function __construct(\CharlotteDunois\Yasmin\HTTP\APIManager $api, string $endpoint);
+    function __construct(APIManager $api, string $endpoint);
     
     /**
      * Destroys the bucket.
@@ -54,7 +59,7 @@ interface RatelimitBucketInterface {
      * @param int|null    $limit
      * @param int|null    $remaining
      * @param float|null  $resetTime  Reset time in seconds with milliseconds.
-     * @return \React\Promise\ExtendedPromiseInterface|void
+     * @return ExtendedPromiseInterface|void
      */
     function handleRatelimit(?int $limit, ?int $remaining, ?float $resetTime);
     
@@ -72,17 +77,17 @@ interface RatelimitBucketInterface {
     
     /**
      * Pushes a new request into the queue.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIRequest $request
+     * @param APIRequest $request
      * @return $this
      */
-    function push(\CharlotteDunois\Yasmin\HTTP\APIRequest $request);
+    function push(APIRequest $request);
     
     /**
      * Unshifts a new request into the queue. Modifies remaining ratelimit.
-     * @param \CharlotteDunois\Yasmin\HTTP\APIRequest $request
+     * @param APIRequest $request
      * @return $this
      */
-    function unshift(\CharlotteDunois\Yasmin\HTTP\APIRequest $request);
+    function unshift(APIRequest $request);
     
     /**
      * Retrieves ratelimit meta data.
@@ -95,13 +100,13 @@ interface RatelimitBucketInterface {
      * )
      * ```
      *
-     * @return \React\Promise\ExtendedPromiseInterface|array
+     * @return ExtendedPromiseInterface|array
      */
     function getMeta();
     
     /**
      * Returns the first queue item or false. Modifies remaining ratelimit.
-     * @return \CharlotteDunois\Yasmin\HTTP\APIRequest|false
+     * @return APIRequest|false
      */
     function shift();
     

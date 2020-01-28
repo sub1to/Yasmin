@@ -9,6 +9,12 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use CharlotteDunois\Yasmin\Client;
+use CharlotteDunois\Yasmin\Utils\DataHelpers;
+use Exception;
+use RuntimeException;
+use function property_exists;
+
 /**
  * Something someone does.
  *
@@ -17,7 +23,7 @@ namespace CharlotteDunois\Yasmin\Models;
  * @property string|null                                             $url            The stream url, if streaming.
  *
  * @property string|null                                             $applicationID  The application ID associated with the activity, or null.
- * @property \CharlotteDunois\Yasmin\Models\RichPresenceAssets|null  $assets         Assets for rich presence, or null.
+ * @property RichPresenceAssets|null  $assets         Assets for rich presence, or null.
  * @property string|null                                             $details        Details about the activity, or null.
  * @property array|null                                              $party          Party of the activity, an array in the format `[ 'id' => string, 'size' => [ size (int), max (int|null) ]|null ]`, or null.
  * @property string|null                                             $state          State of the activity, or null.
@@ -81,7 +87,7 @@ class Activity extends ClientBase {
     
     /**
      * Assets for rich presence, or null.
-     * @var \CharlotteDunois\Yasmin\Models\RichPresenceAssets|null
+     * @var RichPresenceAssets|null
      */
     protected $assets;
     
@@ -126,21 +132,23 @@ class Activity extends ClientBase {
      * @var string|null
      */
     protected $syncID;
-    
-    /**
-     * The manual creation of such a class is discouraged. There may be an easy and safe way to create such a class in the future.
-     * @param \CharlotteDunois\Yasmin\Client  $client      The client this instance is for.
-     * @param array                           $activity    An array containing name, type (as int) and url (nullable).
-     */
-    function __construct(\CharlotteDunois\Yasmin\Client $client, array $activity) {
+
+	/**
+	 * The manual creation of such a class is discouraged. There may be an easy and safe way to create such a class in the future.
+	 * @param Client $client The client this instance is for.
+	 * @param array $activity An array containing name, type (as int) and url (nullable).
+	 * @throws Exception
+	 * @throws Exception
+	 */
+    function __construct(Client $client, array $activity) {
         parent::__construct($client);
         
         $this->name = (string) $activity['name'];
         $this->type = (int) $activity['type'];
-        $this->url = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($activity['url'] ?? null), 'string');
+        $this->url = DataHelpers::typecastVariable(($activity['url'] ?? null), 'string');
         
-        $this->applicationID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($activity['application_id'] ?? null), 'string');
-        $this->details = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($activity['details'] ?? null), 'string');
+        $this->applicationID = DataHelpers::typecastVariable(($activity['application_id'] ?? null), 'string');
+        $this->details = DataHelpers::typecastVariable(($activity['details'] ?? null), 'string');
         $this->party = (!empty($activity['party']) ?
             array(
                 ((string) ($activity['party']['id'] ?? '')),
@@ -150,27 +158,27 @@ class Activity extends ClientBase {
                         (isset($activity['party']['size'][1]) ? ((int) $activity['party']['size'][1]) : null)
                     ) : null)
             ) : null);
-        $this->state = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($activity['state'] ?? null), 'string');
+        $this->state = DataHelpers::typecastVariable(($activity['state'] ?? null), 'string');
         
-        $this->assets = (!empty($activity['assets']) ? (new \CharlotteDunois\Yasmin\Models\RichPresenceAssets($this->client, $this, $activity['assets'])) : null);
+        $this->assets = (!empty($activity['assets']) ? (new RichPresenceAssets($this->client, $this, $activity['assets'])) : null);
         $this->timestamps = (!empty($activity['timestamps']) ? array(
-            'start' => (!empty($activity['timestamps']['start']) ? \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime(((int) (((int) $activity['timestamps']['start']) / 1000))) : null),
-            'end' => (!empty($activity['timestamps']['end']) ? \CharlotteDunois\Yasmin\Utils\DataHelpers::makeDateTime(((int) (((int) $activity['timestamps']['end']) / 1000))) : null)
+            'start' => (!empty($activity['timestamps']['start']) ? DataHelpers::makeDateTime(((int) (((int) $activity['timestamps']['start']) / 1000))) : null),
+            'end' => (!empty($activity['timestamps']['end']) ? DataHelpers::makeDateTime(((int) (((int) $activity['timestamps']['end']) / 1000))) : null)
         ) : null);
         
-        $this->flags = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($activity['flags'] ?? null), 'int');
-        $this->sessionID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($activity['session_id'] ?? null), 'string');
-        $this->syncID = \CharlotteDunois\Yasmin\Utils\DataHelpers::typecastVariable(($activity['sync_id'] ?? null), 'string');
+        $this->flags = DataHelpers::typecastVariable(($activity['flags'] ?? null), 'int');
+        $this->sessionID = DataHelpers::typecastVariable(($activity['session_id'] ?? null), 'string');
+        $this->syncID = DataHelpers::typecastVariable(($activity['sync_id'] ?? null), 'string');
     }
     
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         

@@ -9,15 +9,18 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Yasmin\Models\User;
+use InvalidArgumentException;
+
 /**
  * Something all direct message channels implement.
  */
 interface DMChannelInterface extends ChannelInterface, TextChannelInterface {
     /**
      * Determines whether a given user is a recipient of this channel.
-     * @param \CharlotteDunois\Yasmin\Models\User|string  $user  The User instance or user ID.
+     * @param User|string  $user  The User instance or user ID.
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function isRecipient($user);
 }

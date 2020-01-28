@@ -9,6 +9,9 @@
 
 namespace CharlotteDunois\Yasmin\Models;
 
+use RuntimeException;
+use function property_exists;
+
 /**
  * Represents an user's client status.
  *
@@ -69,6 +72,8 @@ class ClientStatus extends Base {
      * @internal
      */
     function __construct(array $clientStatus) {
+    	parent::__construct();
+
         $this->desktop = $clientStatus['desktop'] ?? null;
         $this->mobile = $clientStatus['mobile'] ?? null;
         $this->web = $clientStatus['web'] ?? null;
@@ -77,11 +82,11 @@ class ClientStatus extends Base {
     /**
      * {@inheritdoc}
      * @return mixed
-     * @throws \RuntimeException
+     * @throws RuntimeException
      * @internal
      */
     function __get($name) {
-        if(\property_exists($this, $name)) {
+        if(property_exists($this, $name)) {
             return $this->$name;
         }
         

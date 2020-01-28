@@ -9,10 +9,16 @@
 
 namespace CharlotteDunois\Yasmin\Interfaces;
 
+use CharlotteDunois\Collect\Collection;
+use Countable;
+use InvalidArgumentException;
+use Iterator;
+use const SORT_REGULAR;
+
 /**
  * Something all storages implement. The storage also is used as factory.
  */
-interface StorageInterface extends \Countable, \Iterator {
+interface StorageInterface extends Countable, Iterator {
     /**
      * Returns the current element. From Iterator interface.
      * @return mixed
@@ -65,7 +71,7 @@ interface StorageInterface extends \Countable, \Iterator {
      * Determines if a given key exists in the collection.
      * @param mixed  $key
      * @return bool
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
     */
     function has($key);
     
@@ -73,7 +79,7 @@ interface StorageInterface extends \Countable, \Iterator {
      * Returns the item at a given key. If the key does not exist, null is returned.
      * @param mixed  $key
      * @return mixed|null
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
     */
     function get($key);
     
@@ -82,7 +88,7 @@ interface StorageInterface extends \Countable, \Iterator {
      * @param mixed  $key
      * @param mixed  $value
      * @return $this
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     function set($key, $value);
     
@@ -134,33 +140,34 @@ interface StorageInterface extends \Countable, \Iterator {
      * @return mixed|null|void
     */
     function reduce(callable $closure, $carry = null);
-    
-    /**
-     * Sorts the collection. Returns a new Storage instance.
-     * @param callable  $closure  Callback specification: `function ($a, $b): int`
-     * @return StorageInterface
-    */
-    function sort(bool $descending = false, int $options = \SORT_REGULAR);
+
+	/**
+	 * Sorts the collection. Returns a new Storage instance.
+	 * @param bool $descending
+	 * @param int $options
+	 * @return StorageInterface
+	 */
+    function sort(bool $descending = false, int $options = SORT_REGULAR);
     
     /**
      * Sorts the collection by key. Returns a new Storage instance.
      * @param bool  $descending
      * @param int   $options
-     * @return \CharlotteDunois\Collect\Collection
+     * @return Collection
      */
-    function sortKey(bool $descending = false, int $options = \SORT_REGULAR);
+    function sortKey(bool $descending = false, int $options = SORT_REGULAR);
     
     /**
      * Sorts the collection using a custom sorting function. Returns a new Storage instance.
      * @param callable  $closure  Callback specification: `function ($a, $b): int`
-     * @return \CharlotteDunois\Collect\Collection
+     * @return Collection
      */
     function sortCustom(callable $closure);
     
     /**
      * Sorts the collection by key using a custom sorting function. Returns a new Storage instance.
      * @param callable  $closure  Callback specification: `function ($a, $b): int`
-     * @return \CharlotteDunois\Collect\Collection
+     * @return Collection
      */
     function sortCustomKey(callable $closure);
     
