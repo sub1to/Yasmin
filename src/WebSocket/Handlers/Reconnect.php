@@ -25,6 +25,6 @@ class Reconnect implements WSHandlerInterface {
     }
     
     function handle(WSConnection $ws, $packet): void {
-        $ws->reconnect($packet['d']);
+        $ws->reconnect($packet['d'] ?? false);
     }
 }
