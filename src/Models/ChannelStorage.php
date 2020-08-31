@@ -154,7 +154,7 @@ class ChannelStorage extends Storage implements ChannelStorageInterface {
         
         switch($data['type']) {
             default:
-				throw new DiscordException('Unknown channel type %i' . $data['type']);
+				throw new DiscordException('Unknown channel type ' . $data['type']);
             break;
             case 0:
                 if($guild === null) {
